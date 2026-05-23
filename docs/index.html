@@ -83,8 +83,21 @@
   .tbtn:hover{border-color:var(--brand);color:var(--brand)}
   .tbtn:disabled{opacity:.45;cursor:not-allowed}
 
-  #canvas-wrap{min-height:340px;display:grid;place-items:center;padding:18px;overflow:auto}
-  #diagram svg{max-width:100%;height:auto}
+  #canvas-wrap{position:relative;min-height:340px;display:grid;place-items:center;padding:18px;overflow:auto}
+  #canvas-wrap.has-diagram{padding:0;display:block;overflow:hidden;cursor:grab;height:560px;background:#fafbfb;touch-action:none;user-select:none}
+  #canvas-wrap.has-diagram.dragging{cursor:grabbing}
+  #canvas-wrap.has-diagram #empty,#canvas-wrap.has-diagram #spinner{display:none}
+  #diagram{display:contents}
+  #canvas-wrap.has-diagram #diagram{display:block;position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  #diagram svg{display:block;max-width:100%;height:auto}
+  #canvas-wrap.has-diagram #diagram svg{max-width:none;height:auto}
+  #zoom-ctrls{position:absolute;right:12px;bottom:12px;display:none;gap:4px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.06);z-index:2}
+  #canvas-wrap.has-diagram #zoom-ctrls{display:flex}
+  #zoom-ctrls button{width:30px;height:30px;border:none;background:transparent;color:var(--ink);font-size:16px;font-weight:600;border-radius:6px;cursor:pointer;display:grid;place-items:center}
+  #zoom-ctrls button:hover{background:var(--brand-soft);color:var(--brand-dark)}
+  #zoom-pct{font-size:12px;color:var(--muted);min-width:42px;text-align:center;align-self:center;padding:0 4px;font-variant-numeric:tabular-nums}
+  #zoom-hint{position:absolute;left:12px;bottom:12px;font-size:11.5px;color:var(--muted);background:rgba(255,255,255,.85);padding:3px 8px;border-radius:6px;pointer-events:none;display:none}
+  #canvas-wrap.has-diagram #zoom-hint{display:block}
   .empty{text-align:center;color:var(--muted);max-width:340px}
   .empty .big{font-size:34px;margin-bottom:6px}
 
@@ -197,6 +210,13 @@
         </div>
         <div class="spinner hidden" id="spinner"></div>
         <div id="diagram"></div>
+        <div id="zoom-hint">scroll to zoom · drag to pan</div>
+        <div id="zoom-ctrls" aria-label="Zoom controls">
+          <button id="z-out" title="Zoom out" aria-label="Zoom out">−</button>
+          <span id="zoom-pct">100%</span>
+          <button id="z-in" title="Zoom in" aria-label="Zoom in">+</button>
+          <button id="z-fit" title="Fit to view" aria-label="Fit to view">⤢</button>
+        </div>
       </div>
 
       <textarea id="code" spellcheck="false" aria-label="Mermaid source code"></textarea>
@@ -354,9 +374,12 @@ function cleanMermaid(raw){
 async function render(code){
   $("empty").classList.add("hidden");
   $("diagram").innerHTML = "";
+  $("canvas-wrap").classList.remove("has-diagram");
   try{
     const { svg } = await mermaid.render("m_" + Date.now(), code);
     $("diagram").innerHTML = svg;
+    $("canvas-wrap").classList.add("has-diagram");
+    requestAnimationFrame(fitView);
     return true;
   }catch(err){
     showMsg("That diagram came back with a syntax error. Try clicking “Edit code” to tweak it, or rephrase and generate again.", "err");
@@ -365,6 +388,93 @@ async function render(code){
     return false;
   }
 }
+
+/* ---- pan + zoom on the rendered SVG ---- */
+const view = { scale: 1, tx: 0, ty: 0 };
+const ZOOM_MIN = 0.1, ZOOM_MAX = 8;
+
+function svgSize(){
+  const svg = $("diagram").querySelector("svg");
+  if (!svg) return null;
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  let w = vb && vb.width  ? vb.width  : 0;
+  let h = vb && vb.height ? vb.height : 0;
+  if (!w || !h){ const r = svg.getBoundingClientRect(); w = w || r.width; h = h || r.height; }
+  return { svg, w, h };
+}
+function applyView(){
+  $("diagram").style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+  $("zoom-pct").textContent = Math.round(view.scale * 100) + "%";
+}
+function fitView(){
+  const wrap = $("canvas-wrap");
+  const s = svgSize(); if (!s) return;
+  s.svg.setAttribute("width",  s.w);
+  s.svg.setAttribute("height", s.h);
+  s.svg.style.maxWidth = "none";
+  const pad = 24;
+  const ww = wrap.clientWidth  - pad;
+  const wh = wrap.clientHeight - pad;
+  const scale = Math.min(ww / s.w, wh / s.h, 1);
+  view.scale = scale;
+  view.tx = (wrap.clientWidth  - s.w * scale) / 2;
+  view.ty = (wrap.clientHeight - s.h * scale) / 2;
+  applyView();
+}
+function zoomAt(factor, cx, cy){
+  if (!svgSize()) return;
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, view.scale * factor));
+  const k = next / view.scale;
+  view.tx = cx - k * (cx - view.tx);
+  view.ty = cy - k * (cy - view.ty);
+  view.scale = next;
+  applyView();
+}
+function zoomCenter(factor){
+  const w = $("canvas-wrap");
+  zoomAt(factor, w.clientWidth / 2, w.clientHeight / 2);
+}
+
+(function bindPanZoom(){
+  const wrap = $("canvas-wrap");
+  wrap.addEventListener("wheel", (e) => {
+    if (!wrap.classList.contains("has-diagram")) return;
+    e.preventDefault();
+    const r = wrap.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+  }, { passive:false });
+
+  let drag = null;
+  wrap.addEventListener("pointerdown", (e) => {
+    if (!wrap.classList.contains("has-diagram")) return;
+    drag = { x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty, id:e.pointerId };
+    wrap.setPointerCapture(e.pointerId);
+    wrap.classList.add("dragging");
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    view.tx = drag.tx + (e.clientX - drag.x);
+    view.ty = drag.ty + (e.clientY - drag.y);
+    applyView();
+  });
+  const endDrag = (e) => {
+    if (!drag) return;
+    try { wrap.releasePointerCapture(drag.id); } catch(_){}
+    drag = null;
+    wrap.classList.remove("dragging");
+  };
+  wrap.addEventListener("pointerup", endDrag);
+  wrap.addEventListener("pointercancel", endDrag);
+  wrap.addEventListener("dblclick", fitView);
+
+  $("z-in").onclick  = () => zoomCenter(1.25);
+  $("z-out").onclick = () => zoomCenter(1/1.25);
+  $("z-fit").onclick = fitView;
+
+  window.addEventListener("resize", () => {
+    if (wrap.classList.contains("has-diagram")) fitView();
+  });
+})();
 
 /* ---- call the model (proxy in prod, direct in local-test) ---- */
 async function generate(){
