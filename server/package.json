@@ -1,0 +1,16 @@
+{
+  "name": "senior-care-diagram-proxy",
+  "version": "1.0.0",
+  "description": "Cloud Function proxy that turns plain-English descriptions into Mermaid diagrams via Claude Haiku.",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "functions-framework --target=diagram",
+    "dev": "functions-framework --target=diagram --port=8080"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.0"
+  }
+}

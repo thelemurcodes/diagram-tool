@@ -1,0 +1,9 @@
+# Never commit the deploy script — it will contain your API key after you fill it in
+deploy.sh
+
+# Node
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+*.local
