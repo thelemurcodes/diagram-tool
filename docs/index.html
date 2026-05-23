@@ -437,8 +437,11 @@ function zoomCenter(factor){
 
 (function bindPanZoom(){
   const wrap = $("canvas-wrap");
+  const onControls = (e) => e.target.closest && e.target.closest("#zoom-ctrls");
+
   wrap.addEventListener("wheel", (e) => {
     if (!wrap.classList.contains("has-diagram")) return;
+    if (onControls(e)) return;
     e.preventDefault();
     const r = wrap.getBoundingClientRect();
     zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
@@ -447,6 +450,7 @@ function zoomCenter(factor){
   let drag = null;
   wrap.addEventListener("pointerdown", (e) => {
     if (!wrap.classList.contains("has-diagram")) return;
+    if (onControls(e)) return;
     drag = { x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty, id:e.pointerId };
     wrap.setPointerCapture(e.pointerId);
     wrap.classList.add("dragging");
