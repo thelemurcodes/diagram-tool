@@ -1,16 +1,18 @@
 # Senior Care Diagram Maker — Setup, Cost & Growth Guide (Google Cloud + GitHub Pages)
 
-A free, no-login tool that turns a plain-English description of any senior-care
-workflow into an editable Mermaid flowchart. Built to pull backlinks, rank for
-long-tail searches, and funnel visitors toward your consultations and SaaS.
+A free, no-login tool that turns a plain-English description **or a pasted policy**
+into an editable Mermaid flowchart. Built to pull backlinks, rank for long-tail
+searches, and surface what facilities are actually mapping (so consultants can
+walk into conversations already half-prepared).
 
 ## What's in this folder
 
 | Path | What it is |
 |------|------------|
-| `docs/index.html` | The whole front-end — UI, templates, rendering, export. **GitHub Pages serves this.** |
-| `server/index.js` | The Google Cloud Function that holds your Anthropic key and enforces cost guards. |
-| `server/package.json` | Dependencies for the function. |
+| `docs/index.html` | The whole front-end — mode toggle, templates, rendering, export. **GitHub Pages serves this.** |
+| `docs/terms.html` | Terms of Use page (**draft — needs legal review before launch**). |
+| `server/index.js` | The Google Cloud Function — holds your key, runs cost guards, logs submissions to Firestore. |
+| `server/package.json` | Dependencies (functions-framework + firestore). |
 | `deploy.sh` | One-shot deploy script (gcloud). **Git-ignored** because you put your key in it. |
 | `SETUP.md` | This guide. |
 | `.gitignore` | Keeps `deploy.sh`, `node_modules`, etc. out of your public repo. |
@@ -18,33 +20,29 @@ long-tail searches, and funnel visitors toward your consultations and SaaS.
 ## How it fits together
 
 ```
-Visitor's browser  ──►  docs/index.html on GitHub Pages (https://USER.github.io/REPO)
-        │  POST { prompt, type }
+Visitor's browser  ──►  docs/index.html on GitHub Pages
+        │  POST { prompt, type, mode }            (mode = "describe" or "policy")
         ▼
 Google Cloud Function (server/index.js)  ──►  Anthropic Claude Haiku
    • holds your API key (never exposed)               │
    • CORS-locked to your GitHub Pages origin          ▼
    • rate-limits + token caps                  returns Mermaid code
         │
+        ├──►  Firestore  (diagram_logs collection)   ← analyse usage patterns
         ▼
 Browser renders the diagram with Mermaid (free, client-side)
 ```
 
-The only thing that ever costs money is the Haiku call. Rendering, editing, and
-exporting all happen for free in the visitor's browser, and the front-end hosting
-on GitHub Pages is free.
-
-> **Why two places?** GitHub Pages can only host static files — it can't run
-> server code, and your API key can't be in static files. So the front-end goes on
-> GitHub Pages and the key-holding proxy runs on Google Cloud. This is the standard
-> pattern and both halves sit comfortably in free tiers.
+The only thing that ever costs money is the Haiku call. Rendering is free in the
+browser, and Pages + the function + Firestore all sit comfortably in free tiers
+at prototype scale.
 
 ---
 
 ## Part 1 — Deploy the backend to Google Cloud (~15 min, one time)
 
 **Prereqs:** the [gcloud CLI](https://cloud.google.com/sdk/docs/install), a Google
-Cloud project with billing enabled (free tier covers this), and an
+Cloud project with billing enabled (free tier covers this easily), and an
 [Anthropic API key](https://console.anthropic.com/).
 
 1. **Sign in:**
@@ -56,7 +54,7 @@ Cloud project with billing enabled (free tier covers this), and an
    ```bash
    PROJECT_ID="your-gcp-project-id"
    REGION="us-central1"
-   GITHUB_USER="your-github-username"        # becomes CORS origin https://USER.github.io
+   GITHUB_USER="your-github-username"   # becomes CORS origin https://USER.github.io
    ANTHROPIC_API_KEY="sk-ant-…"
    ```
 
@@ -64,19 +62,23 @@ Cloud project with billing enabled (free tier covers this), and an
    ```bash
    bash deploy.sh
    ```
-   It enables the needed APIs and deploys the function. When it finishes it prints
-   your **endpoint URL**, something like
-   `https://diagram-proxy-abc123-uc.a.run.app`. Copy it.
+   It enables the APIs (incl. Firestore), creates the default Firestore database
+   if needed, grants the function's runtime service account access to Firestore,
+   then deploys the function with `LOG_PROMPTS=true`. When it finishes it prints
+   your **endpoint URL** — something like `https://diagram-proxy-xxx.a.run.app`.
+
+   > Re-running `deploy.sh` is safe — the API enable / DB create / IAM grant
+   > steps are idempotent.
 
 ---
 
 ## Part 2 — Point the front-end at your function
 
-Open `docs/index.html` and edit the `CONFIG` block near the bottom:
+Open `docs/index.html` and edit the `CONFIG` block near the bottom (around line 270):
 
 ```js
 const CONFIG = {
-  API_ENDPOINT: "https://diagram-proxy-abc123-uc.a.run.app", // from step 3
+  API_ENDPOINT: "https://diagram-proxy-xxx.a.run.app",  // from step 3
   BRAND_NAME:   "Senior Care Diagram Maker",
   ORG_NAME:     "Your Agency Name",
   LOGO_TEXT:    "YA",
@@ -88,137 +90,171 @@ const CONFIG = {
 };
 ```
 
-`CONSULT_URL` and `SAAS_URL` are your money paths — point them at your real
-booking and product pages.
-
 > **Try it before publishing:** open `docs/index.html` in a browser with
 > `API_ENDPOINT` left empty — it switches to "local test mode" so you can paste
-> your own key and click around. Never publish in that mode; production uses the
-> Cloud Function.
+> your own key and click around (including testing policy mode). Never publish
+> in that mode; production uses the Cloud Function.
 
 ---
 
 ## Part 3 — Publish to your GitHub site (GitHub Pages)
 
-1. **Create a repo** on GitHub (e.g. `diagram-tool`) and push this folder:
-   ```bash
-   cd "Free Tool - Diagramming"
-   git init
-   git add .
-   git commit -m "Senior care diagram maker"
-   git branch -M main
-   git remote add origin https://github.com/YOUR_USER/diagram-tool.git
-   git push -u origin main
-   ```
-   (`deploy.sh` is git-ignored, so your key won't be pushed.)
+Standard GitHub Pages flow: push the folder, then **Settings → Pages →
+Source: Deploy from a branch → Branch: main, Folder: /docs**. Live at
+`https://YOUR_USER.github.io/your-repo/`.
 
-2. **Turn on Pages:** in the repo, go to **Settings → Pages → Build and deployment**.
-   Set **Source = Deploy from a branch**, **Branch = `main`**, **Folder = `/docs`**,
-   then **Save**.
-
-3. After a minute your tool is live at:
-   ```
-   https://YOUR_USER.github.io/diagram-tool/
-   ```
-
-That origin (`https://YOUR_USER.github.io`) is exactly what the function's CORS is
-locked to — as long as `GITHUB_USER` in `deploy.sh` matched your username, you're
-done. (If it didn't, fix it and re-run `bash deploy.sh`.)
-
-> Embedding in Squarespace later? Drop this in a Code block:
-> ```html
-> <iframe src="https://YOUR_USER.github.io/diagram-tool/"
->         style="width:100%;min-height:880px;border:0;" loading="lazy"
->         title="Free Senior Care Diagram Maker"></iframe>
-> ```
-> Then add that Squarespace page's origin to CORS (see "Allow more origins" below).
+The CORS origin is `https://YOUR_USER.github.io` regardless of repo name — as
+long as `GITHUB_USER` in `deploy.sh` matches your username, you're done.
 
 ---
 
-## Part 4 — Keeping it cheap (the cost guards)
+## Part 4 — Two input modes, and what they're for
 
-Each diagram is ~450 input + ~500 output tokens. At Claude Haiku's pricing
-(**confirm current rates at https://claude.com/pricing** — on the order of ~$1 per
-million input / ~$5 per million output) that's about:
+| Mode | When to use it | Char cap | Cost / use* |
+|------|---------------|----------|-------------|
+| **Describe a process** | Quick descriptions, "map our intake from inquiry to move-in." Also what every template fills in. | 1,500 | ~$0.003 |
+| **Paste a policy** | They already wrote it. Paste a med-pass policy, an evacuation procedure, an infection-control SOP — get the diagram. | 8,000 | ~$0.0045 |
 
+*Per-call cost at Haiku pricing (~$1/M input + ~$5/M output). Confirm current
+rates at https://claude.com/pricing.*
+
+The mode is sent in the POST body as `mode: "describe"` or `mode: "policy"`. The
+Cloud Function picks the matching system prompt and the matching character cap.
+
+---
+
+## Part 5 — Templates (the 10 sharpened set)
+
+The current template library is focused on policy-heavy and emergency-prep
+workflows — the two strongest fit-signals from real conversations:
+
+1. Medication administration (MAR)
+2. Emergency evacuation plan
+3. Fall response & post-fall protocol
+4. Incident reporting
+5. Infection control / outbreak response
+6. Lockdown / active threat
+7. Severe weather response
+8. Missing resident / elopement
+9. Resident admission & intake
+10. Shift change & handoff (SBAR)
+
+To add or change them, edit the `TEMPLATES` array near the top of the script
+block in `docs/index.html`. Each entry is `{ t, d, type, p }` —
+title, short subtitle, default diagram type, prompt text. Every template you add
+is a candidate SEO landing page (see growth playbook below).
+
+---
+
+## Part 6 — Data capture & privacy (read this carefully)
+
+When `LOG_PROMPTS=true` (the default after `deploy.sh`), every request writes a
+record to Firestore's `diagram_logs` collection:
+
+```js
+{
+  timestamp:     <server time>,
+  mode:          "describe" | "policy",
+  type:          "flowchart" | "org" | …,
+  prompt:        <the full text the user submitted>,
+  prompt_chars:  <length>,
+  ip_hash:       <16-char SHA-256 of IP, never the raw IP>,
+  referer:       <where the request came from>,
+  success:       true | false,
+  mermaid_chars: <output length on success>,
+  usage_in:      <input tokens>,
+  usage_out:     <output tokens>,
+  error:         <only on failure>
+}
 ```
-≈ $0.003 per diagram  →  roughly 300 diagrams per $1
+
+**Browse it in the GCP Console** → Firestore → Data → `diagram_logs`.
+
+**Query patterns** (example: most-mapped policy topics this month):
+```bash
+gcloud firestore export gs://your-bucket/exports   # then load into BigQuery, or:
+# In the Firestore console, filter on mode=="policy" and sort by timestamp.
 ```
 
-Your protection is layered:
+> ### ⚠️ Before broadly promoting the tool, do these three things
+>
+> 1. **Have your legal/compliance team review `docs/terms.html`** and update the
+>    bracketed placeholders (`[Your Brand]`, `[contact@youragency.com]`,
+>    `[your state / jurisdiction]`). Remove the yellow "Draft" banner at the top
+>    of the body once approved.
+> 2. **Decide your PHI posture.** The tool tells users not to paste PHI, but some
+>    will anyway. Your T&Cs handle the legal side; consider also adding a server-
+>    side scrubber (e.g., reject obvious patterns like SSNs, MRNs) if exposure
+>    becomes a concern.
+> 3. **Set a monthly spend cap on the Anthropic key** in the Anthropic Console.
+>    This is your hard $ ceiling — without it, "log full content" + "fully open"
+>    has no upper bound.
+>
+> To temporarily turn off logging without redeploying everything: set
+> `LOG_PROMPTS=false` via `gcloud functions deploy diagram-proxy --gen2
+> --region=us-central1 --update-env-vars=LOG_PROMPTS=false`.
+
+---
+
+## Part 7 — Cost guards (what protects you from a runaway bill)
 
 | Guard | Where | What it does |
 |-------|-------|--------------|
-| `MAX_TOKENS` / `MAX_PROMPT_CHARS` | `server/index.js` `LIMITS` | Caps the size (and cost) of any single request. |
-| Per-IP limits (5/min, 40/day) | `server/index.js` `LIMITS` | Stops one visitor from hammering it. *In-memory — soft (see note).* |
-| `--max-instances=3` | `deploy.sh` | Caps how many copies run at once = caps throughput = caps spend rate. |
-| **Anthropic monthly spend limit** | Anthropic Console | **Your hard ceiling.** Set this — the tool can never cost more than you allow. |
+| `MAX_TOKENS` / mode-specific char caps | `server/index.js` `LIMITS` | Caps the size and cost of any single request. |
+| Per-IP limits (5/min, 40/day) | `server/index.js` `LIMITS` | Stops one visitor from hammering it. *In-memory soft limits.* |
+| `--max-instances=3` | `deploy.sh` | Caps concurrency = caps spend rate. |
+| **Anthropic monthly spend limit** | Anthropic Console | **Your hard ceiling.** Set this. |
 | GCP **budget alert** | GCP Console → Billing → Budgets | Emails you if cloud costs cross a threshold. |
 
-**Do set the Anthropic spend cap** — it's the one guarantee that doesn't depend on
-any code. With it in place, "fully open" can never become an expensive surprise.
-
-When a limit is hit, the tool shows a friendly message that nudges the visitor to
-**book a consultation** instead of just erroring — the limit becomes a conversion
-moment.
-
-> **Note on the per-IP limits:** they live in the function's memory, so they reset
-> on a cold start and aren't shared across instances. With `--max-instances=3`
-> that's plenty for a prototype. If you later want exact, durable limits, see the
-> Firestore upgrade below.
+Policy-mode requests cost a bit more (~$0.0045 vs ~$0.003) because the input is
+longer. Even at the global soft cap of 2,000/day all in policy mode, max spend
+is around $9/day — still well under any sane Anthropic cap.
 
 ---
 
-## Part 5 — Optional hardening & upgrades
+## Part 8 — Optional hardening
 
-**Move the key into Secret Manager** (so it's not in an env var):
+**Move the key into Secret Manager** (so it's not an env var):
 ```bash
 echo -n "sk-ant-…" | gcloud secrets create anthropic-key --data-file=-
-# grant the function's runtime service account access, then redeploy with:
-#   --set-secrets="ANTHROPIC_API_KEY=anthropic-key:latest"   (instead of --set-env-vars for the key)
+# Grant the function SA access, then redeploy with:
+#   --set-secrets="ANTHROPIC_API_KEY=anthropic-key:latest"
+#   (drop ANTHROPIC_API_KEY from --set-env-vars)
 ```
 
-**Allow more origins** (e.g. your Squarespace domain + GitHub Pages): the function
-reads a single `ALLOWED_ORIGIN`. To allow several, change the CORS block in
-`server/index.js` to check the incoming `Origin` header against a small allow-list,
-then redeploy.
+**Allow more origins** (e.g., your Squarespace site + GitHub Pages): the
+function reads a single `ALLOWED_ORIGIN`. To allow several, change the CORS
+block in `server/index.js` to match an allow-list, then redeploy.
 
-**Durable, exact rate limits with Firestore:** add `@google-cloud/firestore`, store
-the counters in a `counters` collection with transactions, and grant the function
-`roles/datastore.user`. Only worth it once traffic is high enough that the soft
-in-memory limits matter.
+**Durable rate limits with Firestore counters:** the limits are in-memory today
+(reset on cold start). For exact, cross-instance limits, move the counters into
+Firestore using a transaction. Only worth it once traffic is consistently high.
 
 ---
 
-## Part 6 — Making it actually drive dollars (the growth playbook)
+## Part 9 — Making it actually drive dollars (the growth playbook)
 
 The tool is the magnet. These turn traffic into backlinks, rankings, and consults:
 
-**1. A landing page per template.** The 10 built-in templates (med administration,
-evacuation, intake, onboarding…) are long-tail SEO gold. Make a page per template
-with the embedded tool plus ~300–500 words of useful context. They rank for
-searches competitors ignore, like *"assisted living medication pass flowchart
-template."*
+**1. A landing page per template.** Each of the 10 sharpened templates is
+long-tail SEO gold — *"assisted living fall response flowchart template"*,
+*"infection control outbreak response diagram"*. Make a page per template with
+the embedded tool plus ~300–500 words of useful context.
 
-**2. Let other sites embed it.** Add an "Embed this free tool" snippet (the iframe
-above). Every senior-care blog or association that embeds it is a backlink — the
-single biggest backlink driver.
+**2. "Embed this free tool" snippet.** Every senior-care blog or association
+that drops it into a post is a backlink — the single biggest backlink driver.
 
-**3. The export watermark is a backlink seed.** Every PNG a visitor downloads and
-shares carries your brand + URL. Keep `EXPORT_WATERMARK` pointed at your domain.
+**3. The export watermark is a backlink seed.** Every PNG downloaded carries
+your brand + URL.
 
-**4. Outreach where senior-care ops people gather** — LeadingAge, Argentum, AANAC,
-McKnight's, state assisted-living associations, "free tools for [industry]" lists.
-Pitch it as free and genuinely useful (it is), not as a sales page.
+**4. Outreach where senior-care ops people gather** — LeadingAge, Argentum,
+AANAC, McKnight's, state associations, "free tools for [industry]" lists.
 
-**5. Add Open Graph tags** to `docs/index.html`'s `<head>` so shared links show a
-nice preview — more clicks per share.
-
-**6. Cheapest quality-preserving cost cuts** (when you're ready): pre-bake the 10
-template diagrams so they render with zero API calls, and cache custom results by
-prompt hash. Both cut spend without touching output quality.
+**5. Mine the Firestore logs** for what facilities are actually mapping. Common
+prompt patterns are exactly the topics you should be publishing about and the
+service gaps your consulting team can speak to.
 
 ---
 
-*The two code files are heavily commented — search for the `CONFIG` block in
-`docs/index.html` and the `LIMITS` block in `server/index.js`.*
+*Code is heavily commented — search for the `CONFIG` block in `docs/index.html`
+and the `LIMITS` block in `server/index.js`.*

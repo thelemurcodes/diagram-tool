@@ -1,36 +1,50 @@
 /* ============================================================================
    Senior Care Diagram Maker — serverless proxy (Google Cloud Function, gen2)
    ----------------------------------------------------------------------------
-   WHY THIS EXISTS
-   - Your Anthropic API key must NEVER live in the front-end (it's public on
-     GitHub Pages). This function holds the key server-side on Google Cloud.
-   - The tool is fully open (no login), which is great for reach/backlinks but
-     means you need guards so nobody can drain your budget. Cost protection here:
-        1) per-IP rate limits (per-minute + per-day)
-        2) a global soft daily cap
+   What this does
+   - Holds the Anthropic API key server-side (never exposed to the browser).
+   - Accepts two input modes:
+       • "describe"  — short natural-language description (up to 1,500 chars)
+       • "policy"    — pasted policy/procedure text       (up to 8,000 chars)
+   - Routes to Claude Haiku with a mode-appropriate system prompt and returns
+     a single valid Mermaid diagram.
+   - Enforces cost guards:
+        1) per-IP rate limits (per-minute + per-day, in-memory soft limits)
+        2) global soft daily cap (in-memory, per warm instance)
         3) hard caps on prompt size and output tokens
-     ...backed by two platform-level guarantees you set during deploy:
-        • Cloud Function `--max-instances` (caps concurrency)
-        • an Anthropic Console monthly spend limit (your absolute $ ceiling)
-
-   NOTE on the rate limits: they're held in memory, so they reset on a cold
-   start and aren't shared across instances. With --max-instances=3 that's a
-   fine soft guard for a prototype. For durable, exact limits, see the Firestore
-   upgrade note in SETUP.md. The Anthropic spend cap is your real backstop.
+      Backed by two platform guarantees you set during deploy:
+        • Cloud Function --max-instances=3 (caps concurrency)
+        • an Anthropic Console monthly spend limit (the hard $ ceiling)
+   - When LOG_PROMPTS=true, writes one record per request to Firestore
+     collection `diagram_logs` so you can analyse what facilities are mapping.
+     IP addresses are SHA-256 hashed before storage (never raw IPs).
 
    Deploy: see deploy.sh / SETUP.md
    ============================================================================ */
 
 const functions = require('@google-cloud/functions-framework');
+const crypto    = require('crypto');
+
+/* Lazy Firestore init — only loaded if the module is present. Keeps unit
+   tests (which stub out functions-framework) from needing the dep. */
+let db = null;
+try {
+  const { Firestore } = require('@google-cloud/firestore');
+  db = new Firestore();
+} catch (e) {
+  console.warn('Firestore client unavailable — logging disabled:', e.message);
+}
 
 const LIMITS = {
-  MODEL:            'claude-haiku-4-5-20251001', // cheap + good at structured output
-  MAX_TOKENS:       1100,   // hard cap on output size per diagram (cost control)
-  MAX_PROMPT_CHARS: 1500,   // reject oversized prompts (cost + abuse control)
+  MODEL:            'claude-haiku-4-5-20251001',
+  MAX_TOKENS:       1100,
 
-  PER_IP_PER_MIN:   5,      // bursts
-  PER_IP_PER_DAY:   40,     // one person can't hammer it all day
-  GLOBAL_PER_DAY:   2000    // soft per-instance daily ceiling (see note above)
+  MAX_DESCRIBE_CHARS: 1500,   // describe mode
+  MAX_POLICY_CHARS:   8000,   // policy mode (pasted policy text)
+
+  PER_IP_PER_MIN:   5,
+  PER_IP_PER_DAY:   40,
+  GLOBAL_PER_DAY:   2000      // soft per-instance daily ceiling
 };
 
 /* ---- in-memory soft rate limiter (per warm instance) ---- */
@@ -45,8 +59,8 @@ function allow(key, limit, windowMs) {
 }
 function sweep() { const now = Date.now(); for (const [k, v] of hits) if (now > v.resetAt) hits.delete(k); }
 
-/* ---- diagram-type hint (mirrors the front-end so behavior is identical) ---- */
-function systemPrompt(type) {
+/* ---- diagram-type hint, mode-aware system prompt ---- */
+function systemPrompt(type, mode) {
   const hint = ({
     flowchart: 'a top-down flowchart (`flowchart TD`)',
     org:       'a top-down organizational chart using `flowchart TD` with boxes and reporting lines',
@@ -56,10 +70,21 @@ function systemPrompt(type) {
     decision:  'a decision tree using `flowchart TD` with diamond decision nodes and Yes/No labels'
   })[type] || 'the most appropriate Mermaid diagram';
 
-  return [
-    'You are a diagramming assistant for senior care and assisted living teams.',
-    "Turn the user's description into a single valid Mermaid.js diagram.",
-    `Prefer ${hint}.`,
+  const base = mode === 'policy'
+    ? [
+        'You are a diagramming assistant for senior care and assisted living teams.',
+        'The user has pasted a policy, procedure, or guideline document.',
+        'Read it carefully, extract the operational steps, decisions, roles, and escalation paths, and turn THAT into a single valid Mermaid.js diagram.',
+        'Ignore preamble, legal boilerplate, definitions, and citations — focus on what someone actually does, step by step.',
+        `Prefer ${hint}.`
+      ]
+    : [
+        'You are a diagramming assistant for senior care and assisted living teams.',
+        "Turn the user's description into a single valid Mermaid.js diagram.",
+        `Prefer ${hint}.`
+      ];
+
+  const rules = [
     'Rules:',
     '- Output ONLY the Mermaid code. No explanation, no markdown fences, no backticks.',
     '- Keep node labels short and clear; wrap long text in double quotes.',
@@ -67,15 +92,36 @@ function systemPrompt(type) {
     '- Avoid parentheses, semicolons, and special characters inside labels that break Mermaid.',
     '- Keep it readable: aim for 6-20 nodes unless more are clearly needed.',
     '- It must parse on the first try.'
-  ].join('\n');
+  ];
+
+  return [...base, ...rules].join('\n');
 }
 
-/* ---- strip code fences / stray backticks the model might add ---- */
+/* ---- strip code fences / stray backticks ---- */
 function cleanMermaid(raw) {
   let s = (raw || '').trim();
   const fence = s.match(/```(?:mermaid)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
   return s.replace(/^`+|`+$/g, '').trim();
+}
+
+/* ---- one-way IP hash (so we never store raw IPs) ---- */
+function hashIp(ip) {
+  return crypto.createHash('sha256').update(String(ip || 'unknown')).digest('hex').slice(0, 16);
+}
+
+/* ---- Firestore logging (gated by LOG_PROMPTS env) ---- */
+async function logEvent(doc) {
+  if (!db || process.env.LOG_PROMPTS !== 'true') return;
+  try {
+    await db.collection('diagram_logs').add({
+      ...doc,
+      timestamp: new Date()
+    });
+  } catch (e) {
+    // Never let logging failures break the user request.
+    console.warn('Firestore write failed:', e.message);
+  }
 }
 
 /* ============================================================================
@@ -95,23 +141,33 @@ functions.http('diagram', async (req, res) => {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // validate input
+  // Parse + validate input
   const prompt = (req.body && req.body.prompt ? String(req.body.prompt) : '').trim();
-  const type   = (req.body && req.body.type ? String(req.body.type) : 'flowchart');
+  const type   = (req.body && req.body.type   ? String(req.body.type)   : 'flowchart');
+  let   mode   = (req.body && req.body.mode   ? String(req.body.mode)   : 'describe');
+  if (mode !== 'policy' && mode !== 'describe') mode = 'describe';
+
   if (!prompt) return res.status(400).json({ error: 'Empty prompt' });
-  if (prompt.length > LIMITS.MAX_PROMPT_CHARS) return res.status(413).json({ error: 'Prompt too long' });
 
-  // cost guards
-  if (Math.random() < 0.05) sweep(); // occasional cleanup
-  const ip  = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-  const day = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
-  if (!allow(`g:${day}`, LIMITS.GLOBAL_PER_DAY, 86400000))   return res.status(503).json({ error: 'Daily limit reached' });
-  if (!allow(`m:${ip}`, LIMITS.PER_IP_PER_MIN, 60000))       return res.status(429).json({ error: 'Rate limited' });
-  if (!allow(`d:${ip}:${day}`, LIMITS.PER_IP_PER_DAY, 86400000)) return res.status(429).json({ error: 'Rate limited' });
+  const cap = mode === 'policy' ? LIMITS.MAX_POLICY_CHARS : LIMITS.MAX_DESCRIBE_CHARS;
+  if (prompt.length > cap) return res.status(413).json({ error: 'Prompt too long', cap });
 
-  // call Anthropic
+  // Cost guards
+  if (Math.random() < 0.05) sweep();
+  const rawIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const ipHash = hashIp(rawIp);
+  const day = new Date().toISOString().slice(0, 10);
+
+  if (!allow(`g:${day}`,        LIMITS.GLOBAL_PER_DAY,    86400000)) return res.status(503).json({ error: 'Daily limit reached' });
+  if (!allow(`m:${ipHash}`,     LIMITS.PER_IP_PER_MIN,    60000))    return res.status(429).json({ error: 'Rate limited' });
+  if (!allow(`d:${ipHash}:${day}`, LIMITS.PER_IP_PER_DAY, 86400000)) return res.status(429).json({ error: 'Rate limited' });
+
+  // Call Anthropic
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: 'Server not configured' });
+
+  const referer = String(req.headers['referer'] || req.headers['referrer'] || '').slice(0, 300);
+  const logBase = { mode, type, prompt, prompt_chars: prompt.length, ip_hash: ipHash, referer };
 
   let aiRes;
   try {
@@ -125,25 +181,39 @@ functions.http('diagram', async (req, res) => {
       body: JSON.stringify({
         model: LIMITS.MODEL,
         max_tokens: LIMITS.MAX_TOKENS,
-        system: systemPrompt(type),
+        system: systemPrompt(type, mode),
         messages: [{ role: 'user', content: prompt }]
       })
     });
   } catch (e) {
+    await logEvent({ ...logBase, success: false, error: 'upstream_unreachable' });
     return res.status(502).json({ error: 'Upstream unreachable' });
   }
 
   if (!aiRes.ok) {
     const detail = await aiRes.text().catch(() => '');
+    await logEvent({ ...logBase, success: false, error: 'upstream_' + aiRes.status });
     return res.status(502).json({ error: 'Upstream error', status: aiRes.status, detail: detail.slice(0, 300) });
   }
 
   const data = await aiRes.json();
   const mermaid = cleanMermaid(data && data.content && data.content[0] ? data.content[0].text : '');
-  if (!mermaid) return res.status(502).json({ error: 'Empty result' });
+  if (!mermaid) {
+    await logEvent({ ...logBase, success: false, error: 'empty_result' });
+    return res.status(502).json({ error: 'Empty result' });
+  }
+
+  // success path
+  await logEvent({
+    ...logBase,
+    success: true,
+    mermaid_chars: mermaid.length,
+    usage_in:  data?.usage?.input_tokens  || null,
+    usage_out: data?.usage?.output_tokens || null
+  });
 
   return res.status(200).json({ mermaid });
 });
 
-// exported for local unit tests
-module.exports = { systemPrompt, cleanMermaid, allow, _hits: hits };
+// exported for unit tests
+module.exports = { systemPrompt, cleanMermaid, allow, hashIp, _hits: hits };

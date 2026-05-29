@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Free Senior Care Diagram Maker — Describe it, get a flowchart</title>
-<meta name="description" content="Free tool for senior care & assisted living teams. Describe any process — intake, medication administration, evacuation, onboarding — and get an editable flowchart instantly." />
+<title>Free Senior Care Diagram Maker — Describe it or paste a policy, get a flowchart</title>
+<meta name="description" content="Free tool for senior care & assisted living teams. Describe any process — or paste a policy you already have — and get an editable flowchart instantly. MAR, evacuation, fall response, incident reporting, and more." />
 <style>
   /* ============================================================
      THEME — swap these to match your brand
@@ -58,11 +58,25 @@
   label.fld{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin:0 0 7px}
   textarea#prompt{width:100%;min-height:128px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-family:var(--font);font-size:14.5px;color:var(--ink);background:#fff;outline:none}
   textarea#prompt:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  textarea#prompt.policy{min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
 
   .types{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
   .type{font-size:12.5px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--muted);padding:6px 11px;border-radius:999px;cursor:pointer;transition:.12s}
   .type:hover{border-color:var(--brand)}
   .type[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  /* Mode toggle (Describe a process / Paste a policy) */
+  .modes{display:flex;gap:4px;margin-bottom:14px;background:var(--bg);padding:4px;border-radius:10px;border:1px solid var(--line)}
+  .mode{flex:1;font-size:13px;font-weight:600;border:none;background:transparent;color:var(--muted);padding:8px 12px;border-radius:7px;cursor:pointer;transition:.12s}
+  .mode:hover{color:var(--ink)}
+  .mode[aria-pressed="true"]{background:#fff;color:var(--brand-dark);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+
+  /* Privacy / T&Cs note under the input */
+  .privacy-note{margin:7px 0 0;font-size:11.5px;color:var(--muted);line-height:1.45}
+  .privacy-note a{color:var(--brand);font-weight:600;text-decoration:none}
+  .privacy-note a:hover{text-decoration:underline}
+  .char-count{float:right;font-variant-numeric:tabular-nums}
+  .char-count.over{color:var(--warn);font-weight:700}
 
   .gen{margin-top:14px;width:100%;border:none;background:var(--brand);color:#fff;font-size:15px;font-weight:700;padding:13px;border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
   .gen:hover{background:var(--brand-dark)}
@@ -150,17 +164,28 @@
   </header>
 
   <p class="lede">
-    Describe any workflow in your community in plain English — <b>resident intake, medication administration,
-    emergency evacuation, staff onboarding, shift handoffs</b> — and get a clean, editable flowchart in seconds.
-    No login, no software to install. Export it, print it, hang it in the break room.
+    <b>Describe a workflow in plain English</b> — or <b>paste a policy you already have</b> — and get a clean,
+    editable flowchart in seconds. Built for senior care: medication administration, emergency response,
+    fall response, incident reporting, intake, and more. No login, no software to install.
   </p>
 
   <div class="grid">
 
     <!-- INPUT -->
-    <section class="card pad" aria-label="Describe your diagram">
-      <label class="fld" for="prompt">Describe the process or structure you want to map</label>
+    <section class="card pad" aria-label="Describe your diagram or paste a policy">
+      <div class="modes" id="modes" role="tablist" aria-label="Input mode">
+        <button class="mode" data-mode="describe" aria-pressed="true">Describe a process</button>
+        <button class="mode" data-mode="policy"   aria-pressed="false">Paste a policy</button>
+      </div>
+
+      <label class="fld" id="prompt-label" for="prompt">Describe the process or structure you want to map</label>
       <textarea id="prompt" placeholder="e.g. Map our resident admission process from the first family inquiry through move-in day, including the assessment, paperwork, room assignment, and welcome orientation."></textarea>
+      <p class="privacy-note">
+        <span class="char-count" id="char-count">0 / 1,500</span>
+        By using this tool you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>.
+        Please don't paste protected health information (PHI) or specific resident names — submissions are
+        retained to improve the tool.
+      </p>
 
       <label class="fld" style="margin-top:14px">Diagram style</label>
       <div class="types" id="types">
@@ -238,6 +263,7 @@
 
   <footer class="tool-foot">
     Free diagramming tool by <a id="foot-link" href="#" target="_blank" rel="noopener">[Your Brand]</a>
+    · <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>
     · Built for senior care &amp; assisted living teams · Diagrams render with Mermaid
   </footer>
 </div>
@@ -268,38 +294,48 @@ const CONFIG = {
   EXPORT_WATERMARK: "Made free with [Your Brand] · example.com"
 };
 
-/* ---------- Senior-care templates (these double as SEO landing-page ideas) ---------- */
+/* ---------- Sharpened template set: policy + emergency prep ---------- */
+/* Each template doubles as an SEO landing-page idea — see SETUP.md.    */
 const TEMPLATES = [
-  { t:"Resident admission & intake", d:"From first family inquiry to move-in day",
-    type:"flowchart",
-    p:"Map our resident admission process from the first family inquiry through move-in day. Include the initial phone screening, in-person tour, clinical needs assessment, financial/insurance review, paperwork and agreements, room assignment, care plan setup, and the welcome orientation on move-in day." },
-  { t:"Medication administration (MAR)", d:"Safe med pass workflow with checks",
+  { t:"Medication administration (MAR)", d:"Safe med pass with the five rights",
     type:"flowchart",
     p:"Create a flowchart of our medication administration workflow for a med pass. Include verifying the MAR, the five rights (right resident, drug, dose, route, time), checking for allergies and interactions, administering, documenting, and what to do if a dose is missed, refused, or an error occurs." },
-  { t:"Emergency evacuation plan", d:"Fire / disaster response steps",
+
+  { t:"Emergency evacuation plan", d:"Fire / disaster response",
     type:"flowchart",
     p:"Diagram our emergency evacuation procedure for a fire or disaster. Include detection and alarm, notifying staff and 911, assessing resident mobility levels, the evacuation sequence by zone, accounting for all residents and staff, the designated assembly point, and the all-clear / reentry decision." },
-  { t:"New staff onboarding", d:"First 90 days for caregivers",
-    type:"timeline",
-    p:"Map the onboarding journey for a new caregiver over their first 90 days. Include offer and background check, orientation and compliance training, shadowing shifts, competency sign-offs, benefits enrollment, the 30-day check-in, and the 90-day performance review." },
-  { t:"Shift change & handoff", d:"Clean nurse/aide handoff procedure",
+
+  { t:"Fall response & post-fall protocol", d:"Immediate care, assessment, reporting",
     type:"flowchart",
-    p:"Create a flowchart for our shift change and handoff procedure. Include the outgoing staff updating documentation, the SBAR handoff report, reviewing high-risk residents and pending tasks, narcotic count verification, key/equipment transfer, and the incoming staff confirming and signing off." },
-  { t:"Care plan review & approval", d:"Who reviews, who signs off",
-    type:"flowchart",
-    p:"Diagram our care plan review and approval process. Include the trigger (admission, quarterly review, or change in condition), assessment by the nurse, interdisciplinary team meeting, family input, physician orders, plan updates, sign-offs, and communication of the updated plan to caregivers." },
-  { t:"Incident reporting", d:"Falls, errors & complaints",
+    p:"Diagram our fall response and post-fall protocol. Include immediate scene safety and assessment for injury, notifying the nurse, vital signs and neuro checks, deciding whether to move the resident, calling 911 if needed, notifying family and physician, documenting the fall in the incident report and care plan, root-cause review, and updating the fall-prevention plan." },
+
+  { t:"Incident reporting", d:"Falls, med errors, complaints",
     type:"flowchart",
     p:"Map our incident reporting process for an event such as a fall, medication error, or complaint. Include immediate resident care, notifying the supervisor, documenting the incident report, notifying family and physician, the severity assessment, root-cause review, corrective action, and regulatory reporting if required." },
-  { t:"Facility org chart", d:"Leadership & reporting lines",
-    type:"org",
-    p:"Create an organizational chart for an assisted living community. Top: Executive Director. Reporting to them: Director of Nursing, Business Office Manager, Director of Activities, Dining Services Director, Maintenance Director, and Marketing/Admissions Director. Under the Director of Nursing: charge nurses, then CNAs/caregivers and the med tech team." },
-  { t:"Family communication", d:"Keeping families informed",
+
+  { t:"Infection control / outbreak response", d:"Identify, isolate, notify, escalate",
     type:"flowchart",
-    p:"Diagram how we keep families informed. Include the welcome and primary contact setup, routine update cadence, the care conference schedule, the process for notifying family of a change in condition or incident, how families raise concerns, and how those concerns are tracked to resolution." },
-  { t:"Resident discharge / transfer", d:"Safe transition out or to hospital",
+    p:"Diagram our infection control and outbreak response procedure for a suspected communicable infection such as respiratory illness, GI illness, or scabies. Include identifying symptoms, isolating the resident, applying transmission-based precautions and PPE, notifying the nurse and physician, testing, contact tracing within the facility, reporting to public health if thresholds are met, environmental cleaning, and the all-clear criteria." },
+
+  { t:"Lockdown / active threat", d:"Active shooter or intruder response",
     type:"flowchart",
-    p:"Map our resident discharge and transfer process, including transfer to a hospital or higher level of care. Include the decision and physician order, notifying family, preparing records and medication lists, arranging transport, the handoff to the receiving facility, billing close-out, and follow-up." }
+    p:"Diagram our lockdown and active threat response procedure. Include initial recognition of the threat, calling 911, the lockdown announcement, securing residents in safe rooms, locking exterior and interior doors, accounting for staff and visitors, communicating with law enforcement on arrival, and the all-clear and debrief." },
+
+  { t:"Severe weather response", d:"Hurricane, tornado, wildfire, ice storm",
+    type:"flowchart",
+    p:"Diagram our severe weather response procedure for an approaching event such as a hurricane, tornado, wildfire, or major winter storm. Include monitoring forecasts and triggers for action, deciding shelter-in-place versus evacuation, securing the building, stocking supplies and medications, family and staff communication, executing the response during the event, and post-event damage assessment and recovery." },
+
+  { t:"Missing resident / elopement", d:"Search, escalation, notification",
+    type:"flowchart",
+    p:"Diagram our procedure for a missing resident or elopement. Include the initial discovery and immediate facility search, alerting all staff and securing exits, calling 911 and notifying family, checking surveillance, expanding the search to the surrounding area, documenting the incident, the post-incident review, and updating the resident's care plan and risk assessment." },
+
+  { t:"Resident admission & intake", d:"Inquiry through move-in day",
+    type:"flowchart",
+    p:"Map our resident admission process from the first family inquiry through move-in day. Include the initial phone screening, in-person tour, clinical needs assessment, financial/insurance review, paperwork and agreements, room assignment, care plan setup, and the welcome orientation on move-in day." },
+
+  { t:"Shift change & handoff (SBAR)", d:"Clean handoff with no gaps",
+    type:"flowchart",
+    p:"Create a flowchart for our shift change and handoff procedure. Include the outgoing staff updating documentation, the SBAR handoff report, reviewing high-risk residents and pending tasks, narcotic count verification, key/equipment transfer, and the incoming staff confirming and signing off." }
 ];
 
 /* ============================================================================
@@ -310,8 +346,19 @@ mermaid.initialize({ startOnLoad:false, theme:"neutral", securityLevel:"strict",
 
 const $ = id => document.getElementById(id);
 let activeType = "flowchart";
+let activeMode = "describe";   // "describe" | "policy"
 let currentCode = "";
 let editing = false;
+
+const MAX_CHARS = { describe: 1500, policy: 8000 };
+const PLACEHOLDERS = {
+  describe: "e.g. Map our resident admission process from the first family inquiry through move-in day, including the assessment, paperwork, room assignment, and welcome orientation.",
+  policy:   "Paste your policy or procedure text here (up to 8,000 characters). I'll pull out the operational steps and turn them into a diagram.\n\nPlease don't paste anything containing protected health information (PHI) or specific resident names."
+};
+const LABELS = {
+  describe: "Describe the process or structure you want to map",
+  policy:   "Paste your policy or procedure"
+};
 
 /* ---- apply branding ---- */
 $("brand-name").textContent = CONFIG.BRAND_NAME;
@@ -335,12 +382,29 @@ TEMPLATES.forEach(tp => {
   b.className = "tmpl";
   b.innerHTML = `<b>${tp.t}</b><span>${tp.d}</span>`;
   b.onclick = () => {
+    setMode("describe");       // templates are descriptive, not policy text
     $("prompt").value = tp.p;
     setType(tp.type);
+    updateCharCount();
     $("prompt").focus();
   };
   tmplWrap.appendChild(b);
 });
+
+/* ---- mode toggle (Describe / Policy) ---- */
+function setMode(mode){
+  if (mode !== "describe" && mode !== "policy") mode = "describe";
+  activeMode = mode;
+  document.querySelectorAll(".mode").forEach(el =>
+    el.setAttribute("aria-pressed", el.dataset.mode === mode ? "true" : "false"));
+  const t = $("prompt");
+  t.placeholder = PLACEHOLDERS[mode];
+  $("prompt-label").textContent = LABELS[mode];
+  t.classList.toggle("policy", mode === "policy");
+  updateCharCount();
+}
+document.querySelectorAll(".mode").forEach(el =>
+  el.onclick = () => setMode(el.dataset.mode));
 
 /* ---- diagram-type selector ---- */
 function setType(type){
@@ -350,6 +414,16 @@ function setType(type){
 }
 document.querySelectorAll(".type").forEach(el =>
   el.onclick = () => setType(el.dataset.type));
+
+/* ---- char count under the textarea ---- */
+function updateCharCount(){
+  const len = $("prompt").value.length;
+  const cap = MAX_CHARS[activeMode];
+  const el = $("char-count");
+  el.textContent = `${len.toLocaleString()} / ${cap.toLocaleString()}`;
+  el.classList.toggle("over", len > cap);
+}
+$("prompt").addEventListener("input", updateCharCount);
 
 /* ---- messages ---- */
 function showMsg(text, kind="info"){
@@ -362,10 +436,8 @@ function clearMsg(){ $("msg").className = "msg"; }
 /* ---- strip code fences / stray prose the model might add ---- */
 function cleanMermaid(raw){
   let s = (raw || "").trim();
-  // pull out a ```mermaid ... ``` block if present
   const fence = s.match(/```(?:mermaid)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
-  // remove any leftover stray backticks
   s = s.replace(/^`+|`+$/g, "").trim();
   return s;
 }
@@ -483,7 +555,12 @@ function zoomCenter(factor){
 /* ---- call the model (proxy in prod, direct in local-test) ---- */
 async function generate(){
   const prompt = $("prompt").value.trim();
-  if (!prompt){ showMsg("Tell me what to diagram first — type a description or pick a template.", "info"); return; }
+  if (!prompt){ showMsg("Tell me what to diagram first — type a description, paste a policy, or pick a template.", "info"); return; }
+  const cap = MAX_CHARS[activeMode];
+  if (prompt.length > cap){
+    showMsg(`That's longer than the ${cap.toLocaleString()}-character limit for ${activeMode === "policy" ? "policy" : "describe"} mode. Trim it or split it into pieces.`, "err");
+    return;
+  }
 
   clearMsg();
   setBusy(true);
@@ -491,9 +568,9 @@ async function generate(){
   try{
     let mermaidCode;
     if (LOCAL){
-      mermaidCode = await callAnthropicDirect(prompt, activeType);
+      mermaidCode = await callAnthropicDirect(prompt, activeType, activeMode);
     } else {
-      mermaidCode = await callProxy(prompt, activeType);
+      mermaidCode = await callProxy(prompt, activeType, activeMode);
     }
     currentCode = cleanMermaid(mermaidCode);
     $("code").value = currentCode;
@@ -507,14 +584,15 @@ async function generate(){
 }
 
 /* Production path: your serverless proxy holds the key + cost guards */
-async function callProxy(prompt, type){
+async function callProxy(prompt, type, mode){
   const res = await fetch(CONFIG.API_ENDPOINT, {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ prompt, type })
+    body: JSON.stringify({ prompt, type, mode })
   });
   if (res.status === 429) throw { code:"rate" };
   if (res.status === 503) throw { code:"budget" };
+  if (res.status === 413) throw { code:"toolong" };
   if (!res.ok) throw { code:"http", status:res.status };
   const data = await res.json();
   if (!data.mermaid) throw { code:"empty" };
@@ -522,7 +600,7 @@ async function callProxy(prompt, type){
 }
 
 /* Local-test path: calls Anthropic directly with a pasted key (TEST ONLY) */
-async function callAnthropicDirect(prompt, type){
+async function callAnthropicDirect(prompt, type, mode){
   const key = $("testkey").value.trim();
   if (!key) throw { code:"nokey" };
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -536,7 +614,7 @@ async function callAnthropicDirect(prompt, type){
     body: JSON.stringify({
       model:"claude-haiku-4-5-20251001",
       max_tokens:1100,
-      system: SYSTEM_PROMPT(type),
+      system: SYSTEM_PROMPT(type, mode),
       messages:[{ role:"user", content: prompt }]
     })
   });
@@ -548,8 +626,8 @@ async function callAnthropicDirect(prompt, type){
   return (data.content?.[0]?.text) || "";
 }
 
-/* The same system prompt logic lives in the worker — kept here for local test */
-function SYSTEM_PROMPT(type){
+/* The same system-prompt logic lives in the Cloud Function — kept here for local test */
+function SYSTEM_PROMPT(type, mode){
   const hint = ({
     flowchart:"a top-down flowchart (`flowchart TD`)",
     org:"a top-down organizational chart using `flowchart TD` with boxes and reporting lines",
@@ -558,10 +636,22 @@ function SYSTEM_PROMPT(type){
     timeline:"a `timeline`",
     decision:"a decision tree using `flowchart TD` with diamond decision nodes and Yes/No labels"
   })[type] || "the most appropriate Mermaid diagram";
-  return [
-    "You are a diagramming assistant for senior care and assisted living teams.",
-    "Turn the user's description into a single valid Mermaid.js diagram.",
-    `Prefer ${hint}.`,
+
+  const base = mode === "policy"
+    ? [
+        "You are a diagramming assistant for senior care and assisted living teams.",
+        "The user has pasted a policy, procedure, or guideline document.",
+        "Read it carefully, extract the operational steps, decisions, roles, and escalation paths, and turn THAT into a single valid Mermaid.js diagram.",
+        "Ignore preamble, legal boilerplate, definitions, and citations — focus on what someone actually does, step by step.",
+        `Prefer ${hint}.`
+      ]
+    : [
+        "You are a diagramming assistant for senior care and assisted living teams.",
+        "Turn the user's description into a single valid Mermaid.js diagram.",
+        `Prefer ${hint}.`
+      ];
+
+  const rules = [
     "Rules:",
     "- Output ONLY the Mermaid code. No explanation, no markdown fences, no backticks.",
     "- Keep node labels short and clear; wrap long text in double quotes.",
@@ -569,7 +659,9 @@ function SYSTEM_PROMPT(type){
     "- Avoid parentheses, semicolons, and special characters inside labels that break Mermaid.",
     "- Keep it readable: aim for 6–20 nodes unless more are clearly needed.",
     "- It must parse on the first try."
-  ].join("\n");
+  ];
+
+  return [...base, ...rules].join("\n");
 }
 
 function handleError(err){
@@ -580,6 +672,8 @@ function handleError(err){
     showMsg("This free tool is popular right now and you've hit the rate limit. Take a breather — or skip the wait and book a quick consult with our team.", "info");
   } else if (code === "budget"){
     showMsg("Our free tool has hit its daily limit (it's that popular!). Check back tomorrow, or talk to us about doing this for you.", "info");
+  } else if (code === "toolong"){
+    showMsg("That input is too long for the server. Trim it or split it into smaller pieces.", "err");
   } else if (code === "empty"){
     showMsg("The model didn't return a diagram. Try rephrasing your description a little.", "err");
   } else {
@@ -630,7 +724,6 @@ function exportPNG(){
   const svg = $("diagram").querySelector("svg");
   if (!svg) return;
   const clone = svg.cloneNode(true);
-  // ensure dimensions
   let w = svg.viewBox?.baseVal?.width  || svg.clientWidth  || 1000;
   let h = svg.viewBox?.baseVal?.height || svg.clientHeight || 700;
   const scale = 2;
@@ -648,7 +741,6 @@ function exportPNG(){
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0,0,w+pad*2,h+pad*2+foot);
     ctx.drawImage(img, pad, pad, w, h);
-    // watermark footer (branding -> backlinks when shared)
     ctx.fillStyle = "#5f726f";
     ctx.font = "13px -apple-system, Segoe UI, Roboto, sans-serif";
     ctx.textAlign = "right";
@@ -674,6 +766,9 @@ function flash(btn, text){
 $("prompt").addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
 });
+
+/* initial render of char count */
+updateCharCount();
 </script>
 </body>
 </html>

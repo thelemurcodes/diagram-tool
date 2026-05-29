@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  TERMS OF USE — DRAFT
+  This is a sensible starting point, NOT a legally-reviewed document.
+  Have your legal/compliance team review and adapt the language before
+  the tool is broadly promoted, especially the sections on:
+    • Data Collection & Use (you ARE retaining submitted content)
+    • Acceptable Use / PHI prohibition
+    • Limitation of Liability
+    • Disclaimers (no medical, legal, or compliance advice)
+  Once reviewed, REMOVE the yellow "Draft" banner at the top of the body.
+  Search-replace [Your Brand] / [contact@youragency.com] with real values.
+  =====================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terms of Use — Senior Care Diagram Maker</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root{
+    --brand:#1f7a6d; --brand-dark:#155a50; --brand-soft:#e8f3f1;
+    --ink:#1c2b29; --muted:#5f726f; --line:#dbe6e3; --bg:#f6f9f8; --card:#ffffff;
+    --warn:#b4541a; --warn-soft:#fef3e6; --warn-line:#f3cdb4;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:780px;margin:0 auto;padding:30px 22px 60px}
+  .back{display:inline-block;font-size:13px;color:var(--brand);text-decoration:none;font-weight:600;margin-bottom:18px}
+  .back:hover{text-decoration:underline}
+  .draft{margin:0 0 22px;padding:11px 14px;background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:10px;color:var(--warn);font-size:13.5px}
+  .draft b{font-weight:700}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.4px}
+  .updated{font-size:13px;color:var(--muted);margin:0 0 26px}
+  h2{font-size:17px;margin:30px 0 8px;letter-spacing:-.2px}
+  p,ul{font-size:15px;color:var(--ink);margin:0 0 12px}
+  ul{padding-left:22px}
+  ul li{margin-bottom:6px}
+  .callout{margin:14px 0;padding:12px 14px;background:var(--brand-soft);border:1px solid #c4e0db;border-radius:10px;font-size:14px;color:var(--brand-dark)}
+  .callout b{color:var(--brand-dark)}
+  hr{border:0;border-top:1px solid var(--line);margin:32px 0 18px}
+  footer{font-size:12.5px;color:var(--muted);text-align:center;margin-top:30px}
+  footer a{color:var(--brand);text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="index.html" class="back">← Back to the tool</a>
+
+  <!-- Remove this banner once your legal/compliance team has reviewed the terms. -->
+  <div class="draft"><b>Draft — pending legal review.</b> This page is a sensible starting point. Have your team review and adapt before broadly promoting the tool.</div>
+
+  <h1>Terms of Use</h1>
+  <p class="updated">Last updated: <span id="date">[fill in upon launch]</span></p>
+
+  <p>Welcome. This Senior Care Diagram Maker (the "Tool") is provided free of charge by
+  <b>[Your Brand]</b> ("we", "us"). By using the Tool, you agree to these Terms of Use.</p>
+
+  <h2>1. What the Tool does</h2>
+  <p>The Tool takes a text description of a workflow, or a policy/procedure you paste in, and uses
+  an AI model to produce a Mermaid flowchart you can edit, download, and share. It's intended as a
+  drafting aid for senior care and assisted living teams.</p>
+
+  <div class="callout">
+    The Tool is a drafting aid, not professional advice. It is not medical, clinical, legal, regulatory,
+    or compliance advice. <b>You are responsible for verifying any diagram before using it operationally.</b>
+  </div>
+
+  <h2>2. Acceptable use</h2>
+  <p>You agree to use the Tool only for lawful purposes and in particular you agree <b>not</b> to:</p>
+  <ul>
+    <li>Submit <b>protected health information (PHI)</b>, specific resident names, dates of birth,
+        medical record numbers, or any other content that could identify an individual.</li>
+    <li>Submit confidential information you don't have the right to share.</li>
+    <li>Attempt to extract, reverse-engineer, or abuse the underlying AI model.</li>
+    <li>Use the Tool to defame, harass, or harm any person or organization.</li>
+    <li>Submit malicious code or prompt injections intended to disrupt the service.</li>
+    <li>Use automated means (scrapers, bots) to bypass the rate limits.</li>
+  </ul>
+  <p>We may rate-limit, restrict, or block access at any time, without notice, to protect the Tool
+  and other users.</p>
+
+  <h2>3. Data we collect and how we use it</h2>
+  <p>When you generate a diagram, we record the following on our servers:</p>
+  <ul>
+    <li>The text you submitted (your description or pasted policy).</li>
+    <li>The diagram type and mode you selected.</li>
+    <li>A one-way hash of your IP address (used for abuse prevention and de-duplication; we do not
+        store your raw IP address).</li>
+    <li>The HTTP referrer (the page that linked to the Tool) and the timestamp.</li>
+    <li>Whether the generation succeeded and the size of the resulting diagram.</li>
+  </ul>
+  <p>We use this data to operate the Tool, prevent abuse, improve the model prompts and templates,
+  and identify common patterns in senior-care operations that inform our consulting work and the
+  services we offer. We may publish <b>aggregate, de-identified</b> findings (for example, "the most
+  common processes facilities map are X, Y, Z"). We do not sell your submissions.</p>
+
+  <div class="callout">
+    <b>Heads-up:</b> because we retain what you submit, treat it as you'd treat any text you'd
+    send to a vendor. <b>Don't paste anything you wouldn't want stored.</b> The PHI prohibition in
+    Section 2 exists for this reason.
+  </div>
+
+  <h2>4. Third-party AI processing</h2>
+  <p>Your submissions are sent to a third-party AI model provider (Anthropic) to generate the
+  diagram. That provider processes the submission under its own terms. We do not control or have
+  visibility into that provider's internal handling beyond their published terms.</p>
+
+  <h2>5. Retention</h2>
+  <p>We retain submissions and the metadata listed above for as long as we find them useful for
+  the purposes in Section 3. You may request deletion of submissions reasonably attributable to
+  you by emailing <a href="mailto:[contact@youragency.com]">[contact@youragency.com]</a> — though
+  because we don't store account-level identifiers, we may be limited in what we can locate.</p>
+
+  <h2>6. Ownership and rights</h2>
+  <p>You retain ownership of the text you submit and of the diagrams you generate. You grant us a
+  worldwide, royalty-free, non-exclusive license to use, store, reproduce, and analyze your
+  submissions for the purposes described in Section 3.</p>
+  <p>The Tool itself, including its design, code, prompts, and template library, is owned by us.</p>
+
+  <h2>7. No warranty</h2>
+  <p>The Tool is provided <b>"AS IS"</b>, without warranty of any kind, express or implied. We do
+  not warrant that the Tool will be uninterrupted, error-free, secure, or that any diagram it
+  produces will be accurate, complete, or suitable for any particular purpose, including any
+  clinical, regulatory, or operational purpose.</p>
+
+  <h2>8. Limitation of liability</h2>
+  <p>To the maximum extent permitted by law, we will not be liable for any indirect, incidental,
+  special, consequential, or punitive damages, or any loss of profits, data, or goodwill, arising
+  out of or relating to your use of the Tool. Our total liability for any claim arising out of or
+  relating to these Terms or the Tool is limited to <b>$100</b>.</p>
+
+  <h2>9. Changes</h2>
+  <p>We may update these Terms at any time. The "Last updated" date above will reflect any change.
+  Your continued use of the Tool after a change means you accept the updated Terms.</p>
+
+  <h2>10. Governing law</h2>
+  <p>These Terms are governed by the laws of <b>[your state / jurisdiction]</b>, without regard to
+  conflict-of-laws principles.</p>
+
+  <h2>11. Contact</h2>
+  <p>Questions, deletion requests, or reports of abuse:
+  <a href="mailto:[contact@youragency.com]">[contact@youragency.com]</a>.</p>
+
+  <hr>
+  <footer>
+    <a href="index.html">← Back to the Senior Care Diagram Maker</a>
+  </footer>
+</div>
+<script>document.getElementById("date").textContent = new Date().toISOString().slice(0,10);</script>
+</body>
+</html>
