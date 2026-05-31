@@ -123,6 +123,53 @@ Cloud Function picks the matching system prompt and the matching character cap.
 
 ---
 
+## Team sign-in for larger input caps
+
+There's a small **Sign in** button in the header. Signing in unlocks a much larger
+input cap (50,000 chars in either mode) — enough to paste full procedures and
+policies without splitting them up. Anonymous visitors stay capped at 1,500 /
+8,000 chars. When an anonymous visitor hits the limit, the error message
+surfaces a "Sign in" link inline so your consultants don't have to hunt for it.
+
+**How it works**
+- The password is set as the `AUTH_PASSWORD` env var on the Cloud Function
+  (`deploy.sh` writes it). The current value is in `deploy.sh` — git-ignored.
+- The browser sends the entered password to a small `auth_check` endpoint on
+  the same function; the server compares it to the env var and replies
+  `{authed: true|false}`. On a match, the front-end stores the password in
+  `localStorage` and sends it with every diagram request.
+- The server validates the password on every request and only grants the
+  larger cap if it matches.
+
+**Sharing the password.** Tell your team in person / Slack / etc. — *not* on a
+public page. Avoid putting it in client-side code on any other site.
+
+**Rotating it.** Edit `AUTH_PASSWORD` in `deploy.sh`, rerun `bash deploy.sh`.
+Existing browsers with the old token will get re-validated on next page load
+and quietly signed out.
+
+> ### ⚠️ Be honest about what this is
+>
+> This is a **UX gate**, not real authentication. The password travels in
+> request bodies over HTTPS and ends up in `localStorage` and in the GCP
+> Console (as an env var). Someone reading network traffic or with GCP project
+> access can find it. The threat model:
+>
+> - **What an attacker gains:** a higher input cap (~50k chars). Each call is
+>   still bounded by `MAX_TOKENS` and counted against your rate limits and the
+>   Anthropic monthly spend cap.
+> - **What they don't gain:** any access to logs, your project, or anything
+>   sensitive.
+>
+> So leakage means "extra Anthropic spend, bounded by your cap" — not a
+> disaster. If you ever need real auth (per-user accounts, revocable tokens,
+> audit trails), that's a product step, not a free-tool tweak.
+
+**Local-test mode** (no `API_ENDPOINT` set) auto-grants the larger cap and hides
+the Sign-in button — you're the developer, you already have full access.
+
+---
+
 ## Part 5 — Templates (the 10 sharpened set)
 
 The current template library is focused on policy-heavy and emergency-prep

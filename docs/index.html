@@ -43,8 +43,17 @@
   .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px}
   .brand h1{font-size:18px;margin:0;font-weight:750;letter-spacing:-.3px}
   .brand p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
   .head-cta{font-size:14px;font-weight:650;color:#fff;background:var(--accent);padding:9px 16px;border-radius:999px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
   .head-cta:hover{background:var(--accent-dark)}
+
+  /* Sign-in button (less prominent than the consult CTA) */
+  .auth-btn{font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;transition:.12s;white-space:nowrap;font-family:var(--font)}
+  .auth-btn:hover{border-color:var(--brand);color:var(--brand)}
+  .auth-btn.signed{background:var(--brand-soft);border-color:#c4e0db;color:var(--brand-dark)}
+  .auth-btn.signed:hover{background:#d4e8e4}
 
   .lede{margin:14px 0 18px;font-size:15px;color:var(--muted);max-width:760px}
   .lede b{color:var(--ink);font-weight:700}
@@ -124,6 +133,7 @@
   .msg.show{display:block}
   .msg.err{background:#fdeee6;color:var(--warn);border:1px solid #f3cdb4}
   .msg.info{background:var(--brand-soft);color:var(--brand-dark);border:1px solid #c4e0db}
+  .msg a[data-action="signin"]{color:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 
   /* CTA banner */
   .cta{margin-top:18px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;border-radius:var(--radius);padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -143,6 +153,22 @@
   .testbar{margin-top:14px;border:1px dashed #c9b48c;background:#fcf8ef;border-radius:10px;padding:11px 13px;font-size:12.5px;color:#6b5a30}
   .testbar input{width:100%;margin-top:7px;border:1px solid #e0d3ad;border-radius:8px;padding:8px 10px;font-family:ui-monospace,monospace;font-size:12.5px}
   .testbar b{color:#5a4a22}
+
+  /* Auth modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(20,40,38,.5);display:grid;place-items:center;padding:18px;z-index:50}
+  .modal-card{background:var(--card);border-radius:var(--radius);box-shadow:0 10px 36px rgba(0,0,0,.22);max-width:400px;width:100%;padding:22px 22px 18px;font-family:var(--font)}
+  .modal-card h3{margin:0 0 6px;font-size:18px;letter-spacing:-.2px}
+  .modal-card p.lead{margin:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.5}
+  .modal-card input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-family:var(--font);font-size:14.5px;color:var(--ink);outline:none}
+  .modal-card input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  .modal-err{margin:8px 0 0;font-size:12.5px;color:var(--warn);font-weight:600}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .btn-ghost{font-size:13.5px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--muted);padding:9px 16px;border-radius:9px;cursor:pointer;transition:.12s;font-family:var(--font)}
+  .btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+  .btn-primary{font-size:13.5px;font-weight:700;border:none;background:var(--brand);color:#fff;padding:9px 18px;border-radius:9px;cursor:pointer;transition:.12s;font-family:var(--font)}
+  .btn-primary:hover{background:var(--brand-dark)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
   .hidden{display:none!important}
 </style>
 </head>
@@ -160,7 +186,10 @@
         <p id="brand-tag">A free tool from <span id="brand-org">[Your Brand]</span></p>
       </div>
     </div>
-    <a class="head-cta" id="head-cta" href="#" target="_blank" rel="noopener">Book a free consultation</a>
+    <div class="head-actions">
+      <button class="auth-btn" id="auth-btn" type="button" title="Sign in for larger input limits">Sign in</button>
+      <a class="head-cta" id="head-cta" href="#" target="_blank" rel="noopener">Book a free consultation</a>
+    </div>
   </header>
 
   <p class="lede">
@@ -268,6 +297,20 @@
   </footer>
 </div>
 
+<!-- Sign-in modal (lives outside .wrap so the backdrop fills the viewport) -->
+<div class="modal-backdrop hidden" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="modal-card">
+    <h3 id="auth-title">Team sign in</h3>
+    <p class="lead">Signed-in team members get larger input limits — up to 50,000 characters — so you can paste full procedures and policies without hitting the limit.</p>
+    <input type="password" id="auth-pw" placeholder="Password" autocomplete="current-password" />
+    <p class="modal-err hidden" id="auth-err">Incorrect password.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost"   id="auth-cancel" type="button">Cancel</button>
+      <button class="btn-primary" id="auth-submit" type="button">Sign in</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 /* ============================================================================
    CONFIG  — edit this block to brand the tool and point it at your proxy.
@@ -295,7 +338,6 @@ const CONFIG = {
 };
 
 /* ---------- Sharpened template set: policy + emergency prep ---------- */
-/* Each template doubles as an SEO landing-page idea — see SETUP.md.    */
 const TEMPLATES = [
   { t:"Medication administration (MAR)", d:"Safe med pass with the five rights",
     type:"flowchart",
@@ -350,15 +392,28 @@ let activeMode = "describe";   // "describe" | "policy"
 let currentCode = "";
 let editing = false;
 
-const MAX_CHARS = { describe: 1500, policy: 8000 };
+const MAX_CHARS = { describe: 1500, policy: 8000, authed: 50000 };
 const PLACEHOLDERS = {
-  describe: "e.g. Map our resident admission process from the first family inquiry through move-in day, including the assessment, paperwork, room assignment, and welcome orientation.",
-  policy:   "Paste your policy or procedure text here (up to 8,000 characters). I'll pull out the operational steps and turn them into a diagram.\n\nPlease don't paste anything containing protected health information (PHI) or specific resident names."
+  describe: "e.g. Map our resident admission process from the first family inquiry through move-in day, including the assessment, paperwork, room assignment, and welcome orientation."
 };
 const LABELS = {
   describe: "Describe the process or structure you want to map",
   policy:   "Paste your policy or procedure"
 };
+
+/* ---- AUTH state ---- */
+const AUTH_KEY = "scdm.auth";
+let authToken = (() => { try { return localStorage.getItem(AUTH_KEY) || ""; } catch { return ""; } })();
+
+/* ---- LOCAL test mode ---- */
+const LOCAL = !CONFIG.API_ENDPOINT;
+if (LOCAL) $("testbar").classList.remove("hidden");
+
+/* In LOCAL test mode the developer is implicitly trusted, so they get the
+   authed cap without any sign-in flow. In production, isAuthed() reflects
+   whether a valid AUTH_PASSWORD was supplied. */
+function isAuthed(){ return LOCAL ? true : !!authToken; }
+function currentCap(){ return isAuthed() ? MAX_CHARS.authed : (MAX_CHARS[activeMode] || MAX_CHARS.describe); }
 
 /* ---- apply branding ---- */
 $("brand-name").textContent = CONFIG.BRAND_NAME;
@@ -371,10 +426,6 @@ $("cta-consult-link").href  = CONFIG.CONSULT_URL;
 $("cta-saas-link").href     = CONFIG.SAAS_URL;
 $("foot-link").href         = CONFIG.HOME_URL;
 
-/* ---- local-test mode visibility ---- */
-const LOCAL = !CONFIG.API_ENDPOINT;
-if (LOCAL) $("testbar").classList.remove("hidden");
-
 /* ---- render template chips ---- */
 const tmplWrap = $("tmpls");
 TEMPLATES.forEach(tp => {
@@ -382,7 +433,7 @@ TEMPLATES.forEach(tp => {
   b.className = "tmpl";
   b.innerHTML = `<b>${tp.t}</b><span>${tp.d}</span>`;
   b.onclick = () => {
-    setMode("describe");       // templates are descriptive, not policy text
+    setMode("describe");
     $("prompt").value = tp.p;
     setType(tp.type);
     updateCharCount();
@@ -397,14 +448,23 @@ function setMode(mode){
   activeMode = mode;
   document.querySelectorAll(".mode").forEach(el =>
     el.setAttribute("aria-pressed", el.dataset.mode === mode ? "true" : "false"));
-  const t = $("prompt");
-  t.placeholder = PLACEHOLDERS[mode];
   $("prompt-label").textContent = LABELS[mode];
-  t.classList.toggle("policy", mode === "policy");
+  $("prompt").classList.toggle("policy", mode === "policy");
+  updatePlaceholder();
   updateCharCount();
 }
 document.querySelectorAll(".mode").forEach(el =>
   el.onclick = () => setMode(el.dataset.mode));
+
+function updatePlaceholder(){
+  const cap = currentCap();
+  const t = $("prompt");
+  if (activeMode === "policy"){
+    t.placeholder = `Paste your policy or procedure text here (up to ${cap.toLocaleString()} characters). I'll pull out the operational steps and turn them into a diagram.\n\nPlease don't paste anything containing protected health information (PHI) or specific resident names.`;
+  } else {
+    t.placeholder = PLACEHOLDERS.describe;
+  }
+}
 
 /* ---- diagram-type selector ---- */
 function setType(type){
@@ -418,7 +478,7 @@ document.querySelectorAll(".type").forEach(el =>
 /* ---- char count under the textarea ---- */
 function updateCharCount(){
   const len = $("prompt").value.length;
-  const cap = MAX_CHARS[activeMode];
+  const cap = currentCap();
   const el = $("char-count");
   el.textContent = `${len.toLocaleString()} / ${cap.toLocaleString()}`;
   el.classList.toggle("over", len > cap);
@@ -431,7 +491,140 @@ function showMsg(text, kind="info"){
   m.textContent = text;
   m.className = `msg show ${kind}`;
 }
+function showMsgHtml(html, kind="info"){
+  const m = $("msg");
+  m.innerHTML = html;
+  m.className = `msg show ${kind}`;
+}
 function clearMsg(){ $("msg").className = "msg"; }
+
+/* Surface the Sign-in CTA inside messages */
+$("msg").addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("[data-action='signin']");
+  if (a) { e.preventDefault(); openAuthModal(); }
+});
+
+function capExceededMsg(cap){
+  if (isAuthed()){
+    return `That's longer than the ${cap.toLocaleString()}-character limit. Trim it or split it into pieces.`;
+  }
+  return `That's longer than the ${cap.toLocaleString()}-character limit. <a href="#" data-action="signin">Sign in</a> for larger inputs, or trim it.`;
+}
+
+/* ---- AUTH UI ---- */
+function updateAuthUI(){
+  const btn = $("auth-btn");
+  if (LOCAL){
+    btn.classList.add("hidden");
+    return;
+  }
+  if (authToken){
+    btn.textContent = "Signed in ✓";
+    btn.classList.add("signed");
+    btn.title = "Click to sign out";
+  } else {
+    btn.textContent = "Sign in";
+    btn.classList.remove("signed");
+    btn.title = "Sign in for larger input limits";
+  }
+  updateCharCount();
+  updatePlaceholder();
+}
+$("auth-btn").onclick = () => {
+  if (LOCAL) return;
+  if (authToken){
+    if (confirm("Sign out?")){
+      authToken = "";
+      try { localStorage.removeItem(AUTH_KEY); } catch {}
+      updateAuthUI();
+      showMsg("Signed out.", "info");
+    }
+  } else {
+    openAuthModal();
+  }
+};
+
+function openAuthModal(){
+  $("auth-modal").classList.remove("hidden");
+  $("auth-pw").value = "";
+  $("auth-err").classList.add("hidden");
+  setTimeout(() => $("auth-pw").focus(), 50);
+}
+function closeAuthModal(){ $("auth-modal").classList.add("hidden"); }
+
+$("auth-cancel").onclick = closeAuthModal;
+$("auth-modal").addEventListener("click", (e) => {
+  if (e.target.id === "auth-modal") closeAuthModal();
+});
+$("auth-submit").onclick = handleAuthSubmit;
+$("auth-pw").addEventListener("keydown", e => {
+  if (e.key === "Enter")  { e.preventDefault(); handleAuthSubmit(); }
+  if (e.key === "Escape") closeAuthModal();
+});
+
+async function handleAuthSubmit(){
+  const pw = $("auth-pw").value;
+  if (!pw) return;
+  const btn = $("auth-submit");
+  btn.disabled = true; btn.textContent = "Checking…";
+  $("auth-err").classList.add("hidden");
+  try {
+    if (LOCAL){
+      // No server to check against in local-test mode — accept anything.
+      acceptAuth(pw);
+    } else {
+      const res = await fetch(CONFIG.API_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_check: true, auth: pw })
+      });
+      if (res.status === 429) throw new Error("rate");
+      if (!res.ok) throw new Error("server");
+      const data = await res.json();
+      if (data.authed){
+        acceptAuth(pw);
+      } else {
+        $("auth-err").textContent = "Incorrect password.";
+        $("auth-err").classList.remove("hidden");
+      }
+    }
+  } catch (e) {
+    const msg = e && e.message === "rate"
+      ? "Too many attempts. Wait a minute and try again."
+      : "Couldn't reach the server. Try again in a moment.";
+    $("auth-err").textContent = msg;
+    $("auth-err").classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "Sign in";
+  }
+}
+function acceptAuth(pw){
+  authToken = pw;
+  try { localStorage.setItem(AUTH_KEY, pw); } catch {}
+  closeAuthModal();
+  updateAuthUI();
+  showMsg("Signed in. You now have larger input limits (up to 50,000 characters).", "info");
+}
+
+/* On page load: if there's a stored token, quietly re-validate. If the password
+   was rotated, this drops the stale token cleanly. */
+(async function revalidateOnLoad(){
+  if (LOCAL || !authToken) return;
+  try {
+    const res = await fetch(CONFIG.API_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth_check: true, auth: authToken })
+    });
+    if (!res.ok) return; // network issue — keep token
+    const data = await res.json();
+    if (!data.authed){
+      authToken = "";
+      try { localStorage.removeItem(AUTH_KEY); } catch {}
+      updateAuthUI();
+    }
+  } catch {}
+})();
 
 /* ---- strip code fences / stray prose the model might add ---- */
 function cleanMermaid(raw){
@@ -556,9 +749,9 @@ function zoomCenter(factor){
 async function generate(){
   const prompt = $("prompt").value.trim();
   if (!prompt){ showMsg("Tell me what to diagram first — type a description, paste a policy, or pick a template.", "info"); return; }
-  const cap = MAX_CHARS[activeMode];
+  const cap = currentCap();
   if (prompt.length > cap){
-    showMsg(`That's longer than the ${cap.toLocaleString()}-character limit for ${activeMode === "policy" ? "policy" : "describe"} mode. Trim it or split it into pieces.`, "err");
+    showMsgHtml(capExceededMsg(cap), "err");
     return;
   }
 
@@ -585,14 +778,20 @@ async function generate(){
 
 /* Production path: your serverless proxy holds the key + cost guards */
 async function callProxy(prompt, type, mode){
+  const body = { prompt, type, mode };
+  if (authToken) body.auth = authToken;
   const res = await fetch(CONFIG.API_ENDPOINT, {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ prompt, type, mode })
+    body: JSON.stringify(body)
   });
   if (res.status === 429) throw { code:"rate" };
   if (res.status === 503) throw { code:"budget" };
-  if (res.status === 413) throw { code:"toolong" };
+  if (res.status === 413){
+    let cap = null, authedResp = false;
+    try { const d = await res.json(); cap = d.cap; authedResp = !!d.authed; } catch(_){}
+    throw { code:"toolong", cap, authed: authedResp };
+  }
   if (!res.ok) throw { code:"http", status:res.status };
   const data = await res.json();
   if (!data.mermaid) throw { code:"empty" };
@@ -673,7 +872,7 @@ function handleError(err){
   } else if (code === "budget"){
     showMsg("Our free tool has hit its daily limit (it's that popular!). Check back tomorrow, or talk to us about doing this for you.", "info");
   } else if (code === "toolong"){
-    showMsg("That input is too long for the server. Trim it or split it into smaller pieces.", "err");
+    showMsgHtml(capExceededMsg(err.cap || currentCap()), "err");
   } else if (code === "empty"){
     showMsg("The model didn't return a diagram. Try rephrasing your description a little.", "err");
   } else {
@@ -767,7 +966,8 @@ $("prompt").addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
 });
 
-/* initial render of char count */
+/* initial render */
+updateAuthUI();
 updateCharCount();
 </script>
 </body>
