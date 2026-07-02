@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "functions-framework --target=diagram",
-    "dev": "functions-framework --target=diagram --port=8080"
+    "dev": "functions-framework --target=diagram --port=8080",
+    "test": "node --experimental-strip-types --test server/__tests__/generateDiagram.test.ts"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.4.0",
