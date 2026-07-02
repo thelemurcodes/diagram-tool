@@ -8,10 +8,26 @@
   },
   "scripts": {
     "start": "functions-framework --target=diagram",
-    "dev": "functions-framework --target=diagram --port=8080"
+    "dev": "functions-framework --target=diagram --port=8080",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.4.0",
     "@google-cloud/firestore": "^7.10.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.4",
+    "typescript": "^5.4.5"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ]
   }
 }
