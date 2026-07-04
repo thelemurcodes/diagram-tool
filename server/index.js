@@ -39,6 +39,11 @@ const LIMITS = {
   MODEL:            'claude-haiku-4-5-20251001',
   MAX_TOKENS:       1100,
 
+  // Hard ceiling applied before mode-specific caps — protects against
+  // abusive/malformed requests that are obviously too large for any mode.
+  // Must exceed MAX_POLICY_CHARS so mode-specific 413 paths remain reachable.
+  MAX_PROMPT_LENGTH:  10_000,
+
   MAX_DESCRIBE_CHARS: 1500,   // describe mode
   MAX_POLICY_CHARS:   8000,   // policy mode (pasted policy text)
 
@@ -147,7 +152,13 @@ functions.http('diagram', async (req, res) => {
   let   mode   = (req.body && req.body.mode   ? String(req.body.mode)   : 'describe');
   if (mode !== 'policy' && mode !== 'describe') mode = 'describe';
 
-  if (!prompt) return res.status(400).json({ error: 'Empty prompt' });
+  // Input guards — both fire before any Anthropic call (cost guard).
+  if (!prompt) {
+    return res.status(400).json({ error: 'Empty prompt' });
+  }
+  if (prompt.length > LIMITS.MAX_PROMPT_LENGTH) {
+    return res.status(400).json({ error: 'Prompt too long', maxLength: LIMITS.MAX_PROMPT_LENGTH });
+  }
 
   const cap = mode === 'policy' ? LIMITS.MAX_POLICY_CHARS : LIMITS.MAX_DESCRIBE_CHARS;
   if (prompt.length > cap) return res.status(413).json({ error: 'Prompt too long', cap });
@@ -216,4 +227,4 @@ functions.http('diagram', async (req, res) => {
 });
 
 // exported for unit tests
-module.exports = { systemPrompt, cleanMermaid, allow, hashIp, _hits: hits };
+module.exports = { systemPrompt, cleanMermaid, allow, hashIp, _hits: hits, LIMITS };
