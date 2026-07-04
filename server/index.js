@@ -1,6 +1,4 @@
-/* ============================================================================
-   Senior Care Diagram Maker — serverless proxy (Google Cloud Function, gen2)
-   ----------------------------------------------------------------------------
+/* Senior Care Diagram Maker — serverless proxy (Google Cloud Function, gen2)
    What this does
    - Holds the Anthropic API key server-side (never exposed to the browser).
    - Accepts two input modes:
@@ -19,8 +17,7 @@
      collection `diagram_logs` so you can analyse what facilities are mapping.
      IP addresses are SHA-256 hashed before storage (never raw IPs).
 
-   Deploy: see deploy.sh / SETUP.md
-   ============================================================================ */
+   Deploy: see deploy.sh / SETUP.md */
 
 const functions = require('@google-cloud/functions-framework');
 const crypto    = require('crypto');
@@ -39,6 +36,7 @@ const LIMITS = {
   MODEL:            'claude-haiku-4-5-20251001',
   MAX_TOKENS:       1100,
 
+  MAX_PROMPT_LENGTH:  10000,  // absolute ceiling across all modes; returns 400
   MAX_DESCRIBE_CHARS: 1500,   // describe mode
   MAX_POLICY_CHARS:   8000,   // policy mode (pasted policy text)
 
@@ -124,9 +122,7 @@ async function logEvent(doc) {
   }
 }
 
-/* ============================================================================
-   HTTP handler  (entry point name = "diagram", referenced in deploy.sh)
-   ============================================================================ */
+/* HTTP handler  (entry point name = "diagram", referenced in deploy.sh) */
 functions.http('diagram', async (req, res) => {
   const origin = process.env.ALLOWED_ORIGIN || '*';
   res.set('Access-Control-Allow-Origin', origin);
@@ -148,6 +144,12 @@ functions.http('diagram', async (req, res) => {
   if (mode !== 'policy' && mode !== 'describe') mode = 'describe';
 
   if (!prompt) return res.status(400).json({ error: 'Empty prompt' });
+
+  // MAX_PROMPT_LENGTH must exceed MAX_POLICY_CHARS or the absolute 400 path is unreachable
+  // before the per-mode 413 path; keep MAX_PROMPT_LENGTH > MAX_POLICY_CHARS.
+  if (prompt.length > LIMITS.MAX_PROMPT_LENGTH) {
+    return res.status(400).json({ error: 'Prompt too long', max: LIMITS.MAX_PROMPT_LENGTH });
+  }
 
   const cap = mode === 'policy' ? LIMITS.MAX_POLICY_CHARS : LIMITS.MAX_DESCRIBE_CHARS;
   if (prompt.length > cap) return res.status(413).json({ error: 'Prompt too long', cap });
@@ -216,4 +218,4 @@ functions.http('diagram', async (req, res) => {
 });
 
 // exported for unit tests
-module.exports = { systemPrompt, cleanMermaid, allow, hashIp, _hits: hits };
+module.exports = { systemPrompt, cleanMermaid, allow, hashIp, _hits: hits, LIMITS };
