@@ -52,5 +52,12 @@ policy content beyond what the intel view genuinely needs.
 - Preserves the constraints above (free-tier, key-safety, no-friction).
 - Ships with a real test (jest) that would fail if the behavior broke — not a smoke test.
 - For an SEO/landing-page item: the page is independently indexable (own URL/title/meta), not just a
-  toggle on the single page.
+  toggle on the single page. It also MUST have:
+  - A `<link rel="canonical" href="...">` in `<head>` pointing to the page's own absolute URL on the
+    live site (`https://thelemurcodes.github.io/diagram-tool/<path>` — there is no custom domain/CNAME
+    today; update this base if that changes).
+  - Exactly ONE `<h1>` on the page: the page's own content heading (e.g. `<h1 class="page-title">`).
+    The site brand/logo in the header (`Senior Care Diagram Maker`) is navigation chrome, not a
+    heading — it must use a non-heading element (e.g. `<p class="site-name">` or `<span>`), never
+    `<h1>`, so it doesn't compete with the page's real heading in the SEO outline.
 - Doesn't regress the existing describe/policy flows.
