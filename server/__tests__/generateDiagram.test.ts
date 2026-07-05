@@ -11,6 +11,9 @@
  *    network calls or real Cloud registrations occur during tests.
  */
 
+export {}; // isolate this file's top-level scope — sibling test files also declare
+           // registeredHandlers/mockFetch/_hits/LIMITS at top level with no module marker
+
 // ---------------------------------------------------------------------------
 // 1. Mock the Cloud Functions framework before the module is loaded so that
 //    functions.http() is captured rather than trying to register a real handler.

@@ -1,3 +1,6 @@
+export {}; // isolate this file's top-level scope — sibling test files also declare
+           // registeredHandlers/mockFetch/_hits/LIMITS at top level with no module marker
+
 const registeredHandlers: Record<string, Function> = {};
 
 jest.mock('@google-cloud/functions-framework', () => ({
