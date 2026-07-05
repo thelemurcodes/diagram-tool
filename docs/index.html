@@ -1107,9 +1107,11 @@ $("prompt").addEventListener("keydown", e => {
 /* ---- Lead-capture prompt ----
    LEAD_CAPTURE_UI_ENABLED mirrors the backend's LEAD_CAPTURE_ENABLED kill switch (server/index.js).
    This is a static site with no access to that server env var, so the UI needs its own explicit
-   off switch — otherwise visitors would see a working-looking "Notify me" form that silently fails
-   server-side while the feature is held for legal review. Flip both together when going live. */
-const LEAD_CAPTURE_UI_ENABLED = false;
+   off switch. Flipped on 2026-07-05 after owner approval of the docs/terms.html lead-capture
+   clause (Section 3a) — the backend's LEAD_CAPTURE_ENABLED + RESEND_API_KEY must be set at the
+   next deploy for this to actually work end-to-end; this flag alone only controls whether the
+   UI is shown, it doesn't make the backend live. */
+const LEAD_CAPTURE_UI_ENABLED = true;
 let leadPromptShown = false;
 
 function maybeShowLeadPrompt(){

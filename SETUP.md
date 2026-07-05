@@ -67,6 +67,34 @@ Cloud project with billing enabled (free tier covers this easily), and an
    then deploys the function with `LOG_PROMPTS=true`. When it finishes it prints
    your **endpoint URL** — something like `https://diagram-proxy-xxx.a.run.app`.
 
+### Lead capture + usage intel env vars (added 2026-07-05, both default OFF)
+
+`deploy.sh` isn't in this repo (git-ignored, holds your keys) — these three
+env vars need to be added to it directly since this doc can't reach that file.
+Add them alongside `ANTHROPIC_API_KEY` in your `--set-env-vars` (or
+`--update-env-vars` on a repeat deploy):
+
+```bash
+LEAD_CAPTURE_ENABLED="false"     # "true" to turn on lead capture — see below
+RESEND_API_KEY="re_…"            # only needed once LEAD_CAPTURE_ENABLED=true
+INSIGHTS_PASSWORD="pick-a-password"   # gates docs/insights.html; safe to set anytime
+```
+
+- **`LEAD_CAPTURE_ENABLED`** — the backend half of the lead-capture kill switch
+  (the frontend half, `LEAD_CAPTURE_UI_ENABLED` in `docs/index.html`, is already
+  flipped on — the "Notify me" prompt is visible, but submissions silently fail
+  until this backend flag is also `true`). The terms.html clause covering what's
+  collected has been reviewed and approved — flip this to `true` whenever you're
+  ready to go live, no further code changes needed.
+- **`RESEND_API_KEY`** — only read when `LEAD_CAPTURE_ENABLED=true`; without it,
+  leads still get saved but the double-opt-in confirmation email silently isn't
+  sent (logged as a warning, never a user-facing error). Get a free-tier key at
+  [resend.com](https://resend.com) — 100 emails/day, no card required.
+- **`INSIGHTS_PASSWORD`** — gates `docs/insights.html` (the usage-intel dashboard).
+  No legal/PII gate on this one; safe to set to anything and share only with
+  whoever should see aggregate usage stats. Placeholder values are fine here —
+  rotate the same way you'd rotate `AUTH_PASSWORD` (edit `deploy.sh`, rerun it).
+
    > Re-running `deploy.sh` is safe — the API enable / DB create / IAM grant
    > steps are idempotent.
 
