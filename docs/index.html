@@ -1104,10 +1104,16 @@ $("prompt").addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
 });
 
-/* ---- Lead-capture prompt ---- */
+/* ---- Lead-capture prompt ----
+   LEAD_CAPTURE_UI_ENABLED mirrors the backend's LEAD_CAPTURE_ENABLED kill switch (server/index.js).
+   This is a static site with no access to that server env var, so the UI needs its own explicit
+   off switch — otherwise visitors would see a working-looking "Notify me" form that silently fails
+   server-side while the feature is held for legal review. Flip both together when going live. */
+const LEAD_CAPTURE_UI_ENABLED = false;
 let leadPromptShown = false;
 
 function maybeShowLeadPrompt(){
+  if (!LEAD_CAPTURE_UI_ENABLED) return;
   if (leadPromptShown) return;
   try {
     if (sessionStorage.getItem("lc_done")) return;

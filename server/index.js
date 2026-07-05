@@ -134,7 +134,12 @@ async function logEvent(doc) {
   }
 }
 
-/* ---- lead capture Firestore write ---- */
+/* ---- lead capture Firestore write ----
+   IMPORTANT for whoever reviews/exports this collection: rows start status:'pending' and only
+   become status:'confirmed' when the recipient clicks their emailed confirmation link (see the
+   lead_confirm handler below). A 'pending' row's email was never verified and could belong to
+   anyone — never contact or export a lead unless status === 'confirmed'. There is no admin/export
+   tool that enforces this yet; it's a manual requirement until one exists. */
 async function writeLead(doc) {
   if (!db) return null;
   return db.collection('leads').add({

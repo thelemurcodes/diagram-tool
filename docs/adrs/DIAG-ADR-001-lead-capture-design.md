@@ -87,8 +87,40 @@ to build/maintain, not chosen now).
 
 ## Follow-on work this decision implies
 
-- `LEAD_CAPTURE_ENABLED` env var (default `false`) gates the new endpoint and the frontend widget.
-- New `lead:${ipHash}` rate-limit keyspace + a hard daily Firestore-write cap on the `leads` write path.
+- `LEAD_CAPTURE_ENABLED` env var (default `false`) gates the new backend endpoint (both the
+  `lead_capture` POST action and the `lead_confirm` GET action).
+- `LEAD_CAPTURE_UI_ENABLED` (a plain `const` in `docs/index.html`, default `false`) gates the
+  frontend widget's render — **correction, 2026-07-05:** the backend env var cannot be read by a
+  static site, so it was never true that one flag gated both halves as originally written above;
+  this is a second, independent flag that must be flipped alongside the backend one when going
+  live, not a consequence of it. Caught by an independent post-merge security QC (see below), not
+  by the original design review.
+- New `lead:${ipHash}` rate-limit keyspace + a hard daily Firestore-write cap on the `leads` write
+  path — **and, since the same QC pass, an equivalent limiter on the `lead_confirm` GET path**
+  (the original hardening only covered the write side; the confirm-token lookup is also an
+  unauthenticated, unbounded Firestore read once the feature is live).
+- **Operational guardrail for manual lead review (A-2 residual, not a code enforcement point):**
+  the `leads` collection contains both `pending` and `confirmed` rows. Only ever contact/export
+  rows where `status === 'confirmed'` — a `pending` row means the email was submitted but never
+  verified by its owner clicking the confirmation link, and could belong to anyone (see A-2 in the
+  skeptic pass below). There is no admin UI or export tool yet to enforce this mechanically; until
+  one exists, this is a manual-process requirement on whoever queries Firestore directly.
 - A transactional-email-sender choice for double opt-in (separate, smaller dependency decision).
-- A `docs/terms.html` clause (drafted, held for legal review before the kill switch flips to `true`).
+- A `docs/terms.html` clause (drafted, held for legal review before either kill switch flips to `true`).
 - New, separate Firestore `leads` collection — not linked to the existing anonymous `diagram_logs`.
+
+## Post-merge independent QC (2026-07-05)
+
+An independent skeptic-cert pass re-validated all 5 original findings against the actual shipped
+code (not the self-reported PR reviews) after all 4 build specs merged. Verdict: no CRITICAL
+reopened, but 2 of 5 findings were closed only on the path originally named, with an unaddressed
+sibling path of the identical failure class:
+- **A-1** (rate-limit/cost-guard): closed on the `lead_capture` write path; the `lead_confirm` GET
+  read path had zero rate limiting — fixed as a follow-up (see rate-limit keyspace note above).
+- **A-4** (kill switch): closed on the backend; the frontend widget rendered unconditionally
+  regardless of the backend flag (a static site can't read a server env var) — fixed via the new
+  `LEAD_CAPTURE_UI_ENABLED` flag above. No data was ever at risk (submissions still hit the
+  disabled backend and failed), but the ADR's original claim that one flag gated both was wrong.
+- **A-2**'s residual (no code/doc-level "only contact confirmed leads" guardrail) — addressed by
+  the operational-guardrail note above; still not mechanically enforced (no admin UI exists).
+- **A-3** and **A-5** were confirmed genuinely closed, no changes needed.
