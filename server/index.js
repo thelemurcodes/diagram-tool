@@ -51,7 +51,10 @@ const LIMITS = {
   GLOBAL_PER_DAY:   2000,     // soft per-instance daily ceiling
 
   LEAD_PER_IP_PER_DAY: 3,
-  LEAD_GLOBAL_PER_DAY: 500
+  LEAD_GLOBAL_PER_DAY: 500,
+
+  LEAD_CONFIRM_PER_IP_PER_DAY:  20,
+  LEAD_CONFIRM_GLOBAL_PER_DAY:  1000
 };
 
 // Basic RFC-5322-ish email regex — rejects obvious non-emails, not exhaustive
@@ -202,6 +205,17 @@ functions.http('diagram', async (req, res) => {
     req.query.action === 'lead_confirm' &&
     req.query.token
   ) {
+    const rawIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+    const ipHash = hashIp(rawIp);
+    const day = new Date().toISOString().slice(0, 10);
+
+    if (!allow(`lgc:${day}`, LIMITS.LEAD_CONFIRM_GLOBAL_PER_DAY, 86400000)) {
+      return res.status(503).send('Service temporarily unavailable. Please try again later.');
+    }
+    if (!allow(`confirm:${ipHash}`, LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY, 86400000)) {
+      return res.status(429).send('Too many confirmation attempts. Please try again later.');
+    }
+
     const token = String(req.query.token);
     if (!db) return res.status(502).send('Service unavailable');
     let snapshot;
