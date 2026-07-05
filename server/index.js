@@ -42,8 +42,14 @@ const LIMITS = {
 
   PER_IP_PER_MIN:   5,
   PER_IP_PER_DAY:   40,
-  GLOBAL_PER_DAY:   2000      // soft per-instance daily ceiling
+  GLOBAL_PER_DAY:   2000,     // soft per-instance daily ceiling
+
+  LEAD_PER_IP_PER_DAY: 3,
+  LEAD_GLOBAL_PER_DAY: 500
 };
+
+// Basic RFC-5322-ish email regex — rejects obvious non-emails, not exhaustive
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /* ---- in-memory soft rate limiter (per warm instance) ---- */
 const hits = new Map(); // key -> { count, resetAt }
@@ -122,6 +128,15 @@ async function logEvent(doc) {
   }
 }
 
+/* ---- lead capture Firestore write ---- */
+async function writeLead(doc) {
+  if (!db) return null;
+  return db.collection('leads').add({
+    ...doc,
+    createdAt: new Date()
+  });
+}
+
 /* HTTP handler  (entry point name = "diagram", referenced in deploy.sh) */
 functions.http('diagram', async (req, res) => {
   const origin = process.env.ALLOWED_ORIGIN || '*';
@@ -136,6 +151,55 @@ functions.http('diagram', async (req, res) => {
     return res.status(204).send('');
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Lead capture action — only active when kill switch is on.
+  // When LEAD_CAPTURE_ENABLED is not 'true', this branch is skipped entirely
+  // and the request falls through to the existing diagram handler, which
+  // returns the same 400 "Empty prompt" any other unrecognized action gets.
+  if (process.env.LEAD_CAPTURE_ENABLED === 'true' && req.body && req.body.action === 'lead_capture') {
+    const rawIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+    const ipHash = hashIp(rawIp);
+    const day = new Date().toISOString().slice(0, 10);
+
+    if (Math.random() < 0.05) sweep();
+
+    if (!allow(`lg:${day}`, LIMITS.LEAD_GLOBAL_PER_DAY, 86400000)) {
+      return res.status(503).json({ error: 'Daily limit reached' });
+    }
+    if (!allow(`lead:${ipHash}`, LIMITS.LEAD_PER_IP_PER_DAY, 86400000)) {
+      return res.status(429).json({ error: 'Rate limited' });
+    }
+
+    const { email, consent, termsVersion, interestedWorkflow, sourcePage } = req.body;
+
+    if (!email || !EMAIL_RE.test(String(email))) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+    if (consent !== true) {
+      return res.status(400).json({ error: 'Consent required' });
+    }
+    if (!termsVersion || !String(termsVersion).trim()) {
+      return res.status(400).json({ error: 'termsVersion required' });
+    }
+
+    const leadDoc = {
+      email: String(email),
+      interestedWorkflow: interestedWorkflow ? String(interestedWorkflow) : null,
+      sourcePage: sourcePage ? String(sourcePage) : null,
+      consentTermsVersion: String(termsVersion),
+      ipHash,
+      status: 'pending'
+    };
+
+    try {
+      await writeLead(leadDoc);
+    } catch (e) {
+      console.warn('Lead Firestore write failed:', e.message);
+      return res.status(502).json({ error: 'Could not save lead' });
+    }
+
+    return res.status(200).json({ received: true });
+  }
 
   // Parse + validate input
   const prompt = (req.body && req.body.prompt ? String(req.body.prompt) : '').trim();
