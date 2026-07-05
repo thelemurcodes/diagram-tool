@@ -678,7 +678,7 @@ async function render(code){
     requestAnimationFrame(fitView);
     return true;
   }catch(err){
-    showMsg("That diagram came back with a syntax error. Try clicking "Edit code" to tweak it, or rephrase and generate again.", "err");
+    showMsg("That diagram came back with a syntax error. Try clicking “Edit code” to tweak it, or rephrase and generate again.", "err");
     $("empty").classList.remove("hidden");
     console.warn("Mermaid render error:", err);
     return false;
