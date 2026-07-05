@@ -23,7 +23,9 @@
      ANTHROPIC_API_KEY  — Anthropic API key
      RESEND_API_KEY     — Resend API key for confirmation emails (lead capture)
      FUNCTION_URL       — public base URL of this Cloud Function (e.g. https://...run.app),
-                          used to build the confirmation link in opt-in emails */
+                          used to build the confirmation link in opt-in emails
+     INSIGHTS_PASSWORD  — shared secret for the usage_intel endpoint; must be set at deploy
+                          time like ANTHROPIC_API_KEY/RESEND_API_KEY/LEAD_CAPTURE_ENABLED */
 
 const functions = require('@google-cloud/functions-framework');
 const crypto    = require('crypto');
@@ -175,6 +177,74 @@ async function sendConfirmEmail(email, token) {
   }
 }
 
+/* ---- usage_intel aggregation ---- */
+async function handleUsageIntel(req, res) {
+  const providedKey = req.body && req.body.insightsKey ? String(req.body.insightsKey) : '';
+  const expectedKey = process.env.INSIGHTS_PASSWORD || '';
+
+  if (!expectedKey || providedKey !== expectedKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  let snapshot;
+  try {
+    snapshot = await db.collection('diagram_logs')
+      .orderBy('timestamp', 'desc')
+      .limit(500)
+      .get();
+  } catch (e) {
+    console.warn('usage_intel Firestore query failed:', e.message);
+    return res.status(502).json({ error: 'Could not retrieve usage data' });
+  }
+
+  const docs = snapshot.docs.map(d => d.data());
+  const totalFetched = docs.length;
+
+  let successCount = 0;
+  const byType = {};
+  const byMode = {};
+  const byTemplateId = {};
+  const byReferrerAll = {};
+  const dailyVolume = {};
+
+  for (const doc of docs) {
+    if (doc.success === true) successCount++;
+
+    if (doc.type) byType[doc.type] = (byType[doc.type] || 0) + 1;
+    if (doc.mode) byMode[doc.mode] = (byMode[doc.mode] || 0) + 1;
+
+    if (doc.template_id != null) {
+      byTemplateId[doc.template_id] = (byTemplateId[doc.template_id] || 0) + 1;
+    }
+
+    const ref = doc.referer || '';
+    byReferrerAll[ref] = (byReferrerAll[ref] || 0) + 1;
+
+    if (doc.timestamp) {
+      const ts = doc.timestamp.toDate ? doc.timestamp.toDate() : new Date(doc.timestamp);
+      const day = ts.toISOString().slice(0, 10);
+      dailyVolume[day] = (dailyVolume[day] || 0) + 1;
+    }
+  }
+
+  const successRate = totalFetched > 0 ? successCount / totalFetched : 0;
+
+  const byReferrer = Object.entries(byReferrerAll)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {});
+
+  return res.status(200).json({
+    totalFetched,
+    successRate,
+    byType,
+    byMode,
+    byTemplateId,
+    byReferrer,
+    dailyVolume
+  });
+}
+
 /* HTTP handler  (entry point name = "diagram", referenced in deploy.sh) */
 functions.http('diagram', async (req, res) => {
   const origin = process.env.ALLOWED_ORIGIN || '*';
@@ -224,6 +294,12 @@ functions.http('diagram', async (req, res) => {
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Usage intel action — authenticated internal endpoint, not rate-limited
+  if (req.body && req.body.action === 'usage_intel') {
+    if (!db) return res.status(502).json({ error: 'Could not retrieve usage data' });
+    return handleUsageIntel(req, res);
+  }
 
   // Lead capture action — only active when kill switch is on.
   // When LEAD_CAPTURE_ENABLED is not 'true', this branch is skipped entirely
@@ -285,6 +361,10 @@ functions.http('diagram', async (req, res) => {
   let   mode   = (req.body && req.body.mode   ? String(req.body.mode)   : 'describe');
   if (mode !== 'policy' && mode !== 'describe') mode = 'describe';
 
+  const templateId = (req.body && req.body.templateId != null)
+    ? String(req.body.templateId)
+    : null;
+
   if (!prompt) return res.status(400).json({ error: 'Empty prompt' });
 
   // MAX_PROMPT_LENGTH must exceed MAX_POLICY_CHARS or the absolute 400 path is unreachable
@@ -311,7 +391,7 @@ functions.http('diagram', async (req, res) => {
   if (!key) return res.status(500).json({ error: 'Server not configured' });
 
   const referer = String(req.headers['referer'] || req.headers['referrer'] || '').slice(0, 300);
-  const logBase = { mode, type, prompt, prompt_chars: prompt.length, ip_hash: ipHash, referer };
+  const logBase = { mode, type, prompt, prompt_chars: prompt.length, ip_hash: ipHash, referer, template_id: templateId };
 
   let aiRes;
   try {
