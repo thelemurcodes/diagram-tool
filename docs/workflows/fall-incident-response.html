@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fall Response &amp; Incident Reporting Workflow for Senior Care &amp; Assisted Living — Free Flowchart Tool</title>
+<meta name="description" content="Understand the post-fall protocol and incident reporting workflow used in senior care and assisted living: immediate scene assessment, injury triage, 911 decision, family and physician notification, documentation, root-cause review, and regulatory reporting. Generate a free editable flowchart of your facility's process." />
+<style>
+  :root{
+    --brand:        #1f7a6d;
+    --brand-dark:   #155a50;
+    --brand-soft:   #e8f3f1;
+    --accent:       #e08a3c;
+    --accent-dark:  #c5701f;
+    --ink:          #1c2b29;
+    --muted:        #5f726f;
+    --line:         #dbe6e3;
+    --bg:           #f6f9f8;
+    --card:         #ffffff;
+    --radius:       14px;
+    --shadow:       0 1px 3px rgba(20,40,38,.08), 0 8px 24px rgba(20,40,38,.06);
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:28px 18px 56px}
+
+  header.tool-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px;flex-shrink:0}
+  .brand-text h1.site-name{font-size:17px;margin:0;font-weight:750;letter-spacing:-.3px}
+  .brand-text p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .head-cta{font-size:14px;font-weight:650;color:#fff;background:var(--accent);padding:9px 16px;border-radius:999px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .head-cta:hover{background:var(--accent-dark)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 30px;margin-bottom:20px}
+  @media(max-width:540px){.card{padding:20px 16px}}
+
+  h1.page-title{font-size:clamp(22px,4vw,30px);font-weight:800;letter-spacing:-.4px;margin:0 0 10px;line-height:1.25}
+  .subtitle{font-size:16px;color:var(--muted);margin:0 0 24px;max-width:680px}
+
+  h2{font-size:18px;font-weight:750;letter-spacing:-.2px;margin:0 0 10px;color:var(--ink)}
+  h3{font-size:15px;font-weight:700;margin:0 0 7px;color:var(--brand-dark)}
+  p{margin:0 0 14px}
+  p:last-child{margin-bottom:0}
+  ul{margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:5px}
+
+  .phase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:16px 0}
+  .phase-card{background:var(--brand-soft);border:1px solid #c4e0db;border-radius:10px;padding:14px 16px}
+  .phase-card h3{color:var(--brand-dark);margin-bottom:4px}
+  .phase-card p{font-size:13.5px;color:var(--muted);margin:0}
+
+  .cta-block{background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;border-radius:var(--radius);padding:28px 30px;margin-bottom:20px}
+  .cta-block h2{color:#fff;margin:0 0 6px}
+  .cta-block p{color:rgba(255,255,255,.9);font-size:14.5px;margin:0 0 16px;max-width:480px}
+  .cta-pair{display:flex;gap:12px;flex-wrap:wrap}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .cta-btn:hover{background:var(--accent-dark)}
+  .cta-btn.secondary{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.4)}
+  .cta-btn.secondary:hover{background:rgba(255,255,255,.25)}
+
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:3px 8px;margin-bottom:14px}
+
+  footer.tool-foot{margin-top:30px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer.tool-foot a{color:var(--brand);font-weight:600;text-decoration:none}
+  footer.tool-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="tool-head">
+    <a class="brand" href="../index.html">
+      <div class="logo">SC</div>
+      <div class="brand-text">
+        <h1 class="site-name">Senior Care Diagram Maker</h1>
+        <p>Free workflow tools for senior care teams</p>
+      </div>
+    </a>
+    <a class="head-cta" href="../index.html?tmpl=fall-response">Try the tool free →</a>
+  </header>
+
+  <div class="tag">Workflow Guide</div>
+  <h1 class="page-title">Fall Response &amp; Incident Reporting in Senior Care</h1>
+  <p class="subtitle">How assisted living and skilled nursing facilities respond to a fall — and why the incident report that follows is just as important as the immediate care.</p>
+
+  <div class="cta-block">
+    <h2>Map your facility's fall and incident workflows</h2>
+    <p>Use our free tool to generate editable flowcharts pre-loaded with your fall-response protocol or incident-reporting process. No login required.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=fall-response">Open the fall-response flowchart →</a>
+      <a class="cta-btn secondary" href="../index.html?tmpl=incident-reporting">Open the incident-reporting flowchart →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Why these two workflows are covered together</h2>
+    <p>A fall is the most common trigger for an incident report in senior care settings. The two workflows are causally linked: the moment a resident is found on the floor, both processes begin simultaneously — one focused on the resident's immediate safety, the other on creating an accurate record of what happened and why.</p>
+    <p>Facilities that treat these as separate, unconnected procedures often find gaps: the clinical response is documented well but the incident report is filed hours later from memory, or the incident report is detailed but the root-cause section is skipped because "it was just a fall." Mapping both as a connected sequence helps close those gaps.</p>
+  </div>
+
+  <div class="card">
+    <h2>Immediate post-fall response: the first minutes</h2>
+    <p>The first priority after discovering a resident on the floor is safety — for the resident and for staff. The typical immediate-response sequence looks like this:</p>
+
+    <h3>Scene safety and initial assessment</h3>
+    <p>Before moving the resident, assess the scene. Is the environment still hazardous (wet floor, fallen furniture, an open door to a stairwell)? Alert other staff to assist and secure the area. Approach the resident calmly, speak to them, and observe their level of consciousness before touching them.</p>
+
+    <h3>Injury assessment</h3>
+    <p>A visual and manual assessment for obvious injuries — head laceration, limb deformity, facial bruising — should happen before any attempt to assist the resident up. A resident who has fallen and struck their head, or who cannot bear weight, should not be moved without a nurse's assessment and, in many facilities, physician guidance.</p>
+    <p>Pain assessment is part of this step: ask the resident where they hurt, observe their face and body language, and note any complaints of hip or wrist pain, which are common in fall-related fractures even when no deformity is visible.</p>
+
+    <h3>Vital signs and neuro checks</h3>
+    <p>After the nurse arrives, a baseline set of vitals is taken — blood pressure, pulse, oxygen saturation, respirations, and temperature if indicated. For any fall involving a head strike or loss of consciousness, a neurological check is added: pupil response, orientation to person/place/time, grip strength, and gait if the resident can stand safely.</p>
+    <p>These baseline values matter because changes over the following hours — a dropping blood pressure, declining orientation, a widening pupil — are the clinical signs of serious internal injury that may not be visible immediately after the fall.</p>
+
+    <h3>The decision to call 911</h3>
+    <p>The threshold for calling emergency services varies by facility policy, but common triggers include: suspected fracture, head injury with any loss of consciousness, vital signs outside normal ranges, chest pain or difficulty breathing following the fall, or any resident the nurse judges cannot safely be assessed or stabilized on-site. When in doubt, the guidance in most regulatory frameworks and nursing standards leans toward calling 911 and letting EMS make the transport decision.</p>
+    <p>If 911 is called, a staff member should accompany the resident, bring the MAR and current care plan, and notify the receiving facility or hospital of the resident's baseline condition and medications.</p>
+
+    <h3>Notifying family and physician</h3>
+    <p>Family notification should happen as soon as the resident is stabilized — or earlier if the fall appears serious. Most state regulations require family notification within a defined window (commonly 24 hours, sometimes sooner for serious injury). The physician or on-call nurse practitioner is notified to review the assessment, order any needed diagnostics (X-ray, CT scan), and determine whether a care plan update is warranted.</p>
+    <p>Document the time of each notification call, who was reached, and what was communicated. A "left voicemail" is a valid notation if it is accurate — but a follow-up call should be attempted and documented.</p>
+  </div>
+
+  <div class="card">
+    <h2>The four phases of the immediate response</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3>Secure the scene</h3>
+        <p>Assess hazards, call for help, prevent other residents from entering the area while the response is active.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Assess the resident</h3>
+        <p>Visual injury check, pain assessment, vitals and neuro check with the nurse. Do not move without clinical clearance.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Escalate if needed</h3>
+        <p>Call 911 for suspected fractures, head injuries, or abnormal vitals. Notify physician and family per policy timeline.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Monitor and reassess</h3>
+        <p>Repeat vitals and neuro checks per the post-fall monitoring schedule — typically at 15, 30, and 60 minutes, then hourly as directed.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>The incident reporting workflow</h2>
+    <p>While the clinical team manages the resident's immediate needs, the administrative side of the fall response begins — and it starts with the incident report. In most states and under most accreditation frameworks, incident reports are required for any unexpected event that affects or could affect a resident's health, safety, or wellbeing.</p>
+
+    <h3>Completing the incident report</h3>
+    <p>The incident report captures the factual record: date, time, and exact location of the fall; who discovered the resident; the resident's position and condition when found; what immediate actions were taken and by whom; the findings of the nursing assessment; notifications made and when. The report should be objective — describe what was observed, not conclusions about cause.</p>
+    <p>Timing matters: incident reports completed close to the event are far more accurate and defensible than those filled out hours later. Many facilities use a two-step approach — a brief immediate-response form completed within the first hour, followed by a more detailed narrative within 24 hours once all notifications are documented.</p>
+
+    <h3>Severity assessment</h3>
+    <p>After documentation, the supervisor or charge nurse classifies the incident by severity. Common frameworks use a tier system: low (no injury, resident returned to activity without clinical intervention), moderate (minor injury requiring treatment but not hospitalization), or high (serious injury, hospitalization, or potential for significant harm). Severity drives both the escalation path and the reporting obligations.</p>
+
+    <h3>Root-cause review</h3>
+    <p>A meaningful incident report goes beyond what happened to ask why. Root-cause review is not an investigation to assign blame — it is a structured look at the contributing factors: Was the resident's fall-risk assessment current? Were the interventions on the care plan in place? Was the environment free of known hazards? Was staffing adequate at the time of the fall? Was the resident wearing appropriate footwear?</p>
+    <p>The output of the root-cause review is a corrective action — a specific, observable change to the resident's care plan, the environment, or the facility's process. "Re-educated staff" is not a corrective action; "added a non-skid mat and repositioned the call button to within the resident's reach" is.</p>
+
+    <h3>Regulatory reporting</h3>
+    <p>Many states require facilities to report serious adverse events — including falls resulting in significant injury — to the state health department or long-term care ombudsman within a defined timeframe, often 24–72 hours. The threshold for mandatory reporting varies by state and by the nature of the injury. Facilities should have a documented process for the administrator or director of nursing to review each incident and determine whether regulatory notification is required — and to document that determination either way.</p>
+  </div>
+
+  <div class="card">
+    <h2>Closing the loop: care plan updates and fall prevention</h2>
+    <p>The incident reporting workflow doesn't end with the filed report. A fall is clinical data about a specific resident's risk profile, and the care plan should reflect what was learned. Common updates after a fall include: adjusting the resident's fall-risk score, adding or changing environmental interventions (bed alarm, non-slip footwear, call-bell placement), scheduling a medication review to assess fall-risk medications (diuretics, sedatives, antihypertensives), and referrals to physical therapy for a gait or strength reassessment.</p>
+    <p>At the facility level, recurring patterns across incident reports — falls in a particular unit, at a particular time of day, among residents on a particular medication class — are the signals that quality assurance processes are designed to catch. Facilities with active QAPI (Quality Assurance and Performance Improvement) programs review aggregated incident data monthly and tie findings to facility-wide improvement initiatives.</p>
+    <p>Mapping the full workflow — from the moment of discovery through the closed corrective action — makes both the individual response and the facility's improvement process easier to train, audit, and improve.</p>
+  </div>
+
+  <div class="cta-block">
+    <h2>Generate your facility's flowcharts — free</h2>
+    <p>Both templates are pre-loaded with the workflow steps described on this page. Open either one, edit the prompt to match your facility's specific policy, and generate an editable Mermaid flowchart you can refine, copy, and share.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=fall-response">Fall response &amp; post-fall protocol →</a>
+      <a class="cta-btn secondary" href="../index.html?tmpl=incident-reporting">Incident reporting workflow →</a>
+    </div>
+  </div>
+
+  <footer class="tool-foot">
+    <a href="../index.html">Senior Care Diagram Maker</a>
+    &nbsp;·&nbsp; <a href="../terms.html" target="_blank" rel="noopener">Terms of Use</a>
+    &nbsp;·&nbsp; Free workflow tools for senior care &amp; assisted living teams
+  </footer>
+</div>
+</body>
+</html>
