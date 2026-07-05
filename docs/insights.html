@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Usage Intel &mdash; Senior Care Diagram Maker</title>
+<style>
+  :root{
+    --brand:        #1f7a6d;
+    --brand-dark:   #155a50;
+    --brand-soft:   #e8f3f1;
+    --accent:       #e08a3c;
+    --accent-dark:  #c5701f;
+    --ink:          #1c2b29;
+    --muted:        #5f726f;
+    --line:         #dbe6e3;
+    --bg:           #f6f9f8;
+    --card:         #ffffff;
+    --ok:           #1f7a6d;
+    --warn:         #b4541a;
+    --radius:       14px;
+    --shadow:       0 1px 3px rgba(20,40,38,.08), 0 8px 24px rgba(20,40,38,.06);
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:28px 18px 56px}
+
+  header.tool-head{display:flex;align-items:center;gap:11px;margin-bottom:32px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px;flex-shrink:0}
+  .brand-text .site-name{font-size:17px;margin:0;font-weight:750;letter-spacing:-.3px}
+  .brand-text p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:3px 8px;margin-bottom:14px}
+
+  h1.page-title{font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:-.4px;margin:0 0 8px;line-height:1.25}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 30px;margin-bottom:20px}
+  @media(max-width:540px){.card{padding:20px 16px}}
+
+  h2{font-size:16px;font-weight:750;letter-spacing:-.15px;margin:0 0 14px;color:var(--ink)}
+
+  .gate-lede{font-size:14px;color:var(--muted);margin:0 0 18px}
+
+  .pw-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pw-input{
+    flex:1;
+    min-width:200px;
+    max-width:320px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 13px;
+    font-family:var(--font);
+    font-size:14.5px;
+    color:var(--ink);
+    outline:none;
+    background:#fff;
+  }
+  .pw-input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+
+  .btn-primary{
+    font-size:13.5px;
+    font-weight:700;
+    border:none;
+    background:var(--brand);
+    color:#fff;
+    padding:11px 20px;
+    border-radius:10px;
+    cursor:pointer;
+    font-family:var(--font);
+    transition:.12s;
+    white-space:nowrap;
+  }
+  .btn-primary:hover{background:var(--brand-dark)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
+  .pw-err{margin:10px 0 0;font-size:13px;color:var(--warn);font-weight:600}
+
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+  .stat-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:20px 24px;
+    flex:1;
+    min-width:160px;
+  }
+  .stat-card .stat-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px}
+  .stat-card .stat-value{font-size:32px;font-weight:800;letter-spacing:-.5px;color:var(--brand-dark);line-height:1}
+  .stat-card .stat-sub{font-size:12px;color:var(--muted);margin-top:4px}
+
+  table.intel-table{width:100%;border-collapse:collapse;font-size:14px}
+  table.intel-table th{text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:0 0 8px;border-bottom:1px solid var(--line)}
+  table.intel-table td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  table.intel-table tr:last-child td{border-bottom:none}
+  table.intel-table td.count{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--brand-dark);padding-left:16px;white-space:nowrap}
+  .empty-note{font-size:13.5px;color:var(--muted);font-style:italic}
+
+  .two-col-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:600px){.two-col-grid{grid-template-columns:1fr}}
+
+  .bar-list{display:flex;flex-direction:column;gap:10px}
+  .bar-row{display:flex;align-items:center;gap:10px}
+  .bar-date{font-size:12.5px;color:var(--muted);white-space:nowrap;width:88px;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .bar-track{flex:1;background:var(--brand-soft);border-radius:4px;height:18px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--brand);border-radius:4px;transition:width .3s ease}
+  .bar-count{font-size:12.5px;font-weight:700;color:var(--brand-dark);white-space:nowrap;width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+  .hidden{display:none!important}
+  .spinner{width:28px;height:28px;border:3px solid var(--brand-soft);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-wrap{text-align:center;padding:24px 0;color:var(--muted);font-size:14px}
+  .loading-wrap .spinner{margin:0 auto 12px}
+
+  footer.tool-foot{margin-top:30px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer.tool-foot a{color:var(--brand);font-weight:600;text-decoration:none}
+  footer.tool-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="tool-head">
+    <div class="brand">
+      <div class="logo">SC</div>
+      <div class="brand-text">
+        <p class="site-name">Senior Care Diagram Maker</p>
+        <p>Internal usage intel</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="tag">Consultant View</div>
+  <h1 class="page-title">Usage Intel</h1>
+
+  <div id="gate-section" class="card">
+    <h2>Password required</h2>
+    <p class="gate-lede">This page is for internal use only. Enter your insights password to load the data.</p>
+    <div class="pw-row">
+      <input class="pw-input" type="password" id="pw-input" placeholder="Insights password" autocomplete="off" />
+      <button class="btn-primary" id="pw-submit" type="button">Load data</button>
+    </div>
+    <p class="pw-err hidden" id="pw-err">Incorrect password.</p>
+  </div>
+
+  <div id="loading-section" class="hidden">
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      Fetching usage data&hellip;
+    </div>
+  </div>
+
+  <div id="intel-section" class="hidden">
+
+    <div class="stat-row" id="stat-row"></div>
+
+    <div class="card">
+      <h2>Hot templates</h2>
+      <div id="templates-content"></div>
+    </div>
+
+    <div class="two-col-grid">
+      <div class="card">
+        <h2>By diagram type</h2>
+        <div id="by-type-content"></div>
+      </div>
+      <div class="card">
+        <h2>By mode</h2>
+        <div id="by-mode-content"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Top referrers</h2>
+      <div id="referrers-content"></div>
+    </div>
+
+    <div class="card">
+      <h2>Daily volume</h2>
+      <div id="daily-volume-content"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<footer class="tool-foot">
+  <a href="index.html">Senior Care Diagram Maker</a>
+  &nbsp;&middot;&nbsp; Internal tool &mdash; not indexed
+</footer>
+
+<script type="module">
+const CONFIG = {
+  API_ENDPOINT: "https://diagram-proxy-hwanyl6rbq-uc.a.run.app"
+};
+
+let insightsKey = "";
+
+const $ = id => document.getElementById(id);
+
+$("pw-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") submitPassword();
+});
+$("pw-submit").addEventListener("click", submitPassword);
+
+async function submitPassword() {
+  const val = $("pw-input").value;
+  if (!val) return;
+  insightsKey = val;
+  $("pw-err").classList.add("hidden");
+  $("pw-submit").disabled = true;
+  $("pw-submit").textContent = "Loading\u2026";
+  $("gate-section").classList.add("hidden");
+  $("loading-section").classList.remove("hidden");
+  try {
+    await loadIntel();
+  } catch (err) {
+    showGateWithError();
+  }
+  $("pw-submit").disabled = false;
+  $("pw-submit").textContent = "Load data";
+}
+
+function showGateWithError() {
+  insightsKey = "";
+  $("loading-section").classList.add("hidden");
+  $("gate-section").classList.remove("hidden");
+  $("pw-input").value = "";
+  $("pw-err").classList.remove("hidden");
+  $("pw-input").focus();
+}
+
+async function loadIntel() {
+  const res = await fetch(CONFIG.API_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "usage_intel", insightsKey: insightsKey })
+  });
+
+  if (res.status === 401) {
+    showGateWithError();
+    return;
+  }
+
+  if (!res.ok) {
+    insightsKey = "";
+    $("loading-section").classList.add("hidden");
+    $("gate-section").classList.remove("hidden");
+    $("pw-err").textContent = "Could not reach the server. Try again in a moment.";
+    $("pw-err").classList.remove("hidden");
+    return;
+  }
+
+  const data = await res.json();
+
+  if (
+    data === null ||
+    typeof data !== "object" ||
+    typeof data.totalFetched !== "number" ||
+    typeof data.successRate !== "number" ||
+    typeof data.byType !== "object" ||
+    typeof data.byMode !== "object" ||
+    typeof data.byTemplateId !== "object" ||
+    typeof data.byReferrer !== "object" ||
+    typeof data.dailyVolume !== "object"
+  ) {
+    throw new Error("unexpected response shape");
+  }
+
+  $("loading-section").classList.add("hidden");
+  renderIntel(data);
+  $("intel-section").classList.remove("hidden");
+}
+
+function renderIntel(data) {
+  renderStatCards(data);
+  renderTemplates(data.byTemplateId);
+  renderTwoColTable($("by-type-content"), data.byType, "Type", "Count");
+  renderTwoColTable($("by-mode-content"), data.byMode, "Mode", "Count");
+  renderReferrers(data.byReferrer);
+  renderDailyVolume(data.dailyVolume);
+}
+
+function renderStatCards(data) {
+  const container = $("stat-row");
+
+  const fetched = document.createElement("div");
+  fetched.className = "stat-card";
+  const fetchedLabel = document.createElement("div");
+  fetchedLabel.className = "stat-label";
+  fetchedLabel.textContent = "Diagrams fetched";
+  const fetchedValue = document.createElement("div");
+  fetchedValue.className = "stat-value";
+  fetchedValue.textContent = data.totalFetched.toLocaleString();
+  const fetchedSub = document.createElement("div");
+  fetchedSub.className = "stat-sub";
+  fetchedSub.textContent = "most recent 500 records";
+  fetched.appendChild(fetchedLabel);
+  fetched.appendChild(fetchedValue);
+  fetched.appendChild(fetchedSub);
+  container.appendChild(fetched);
+
+  const rate = document.createElement("div");
+  rate.className = "stat-card";
+  const rateLabel = document.createElement("div");
+  rateLabel.className = "stat-label";
+  rateLabel.textContent = "Success rate";
+  const rateValue = document.createElement("div");
+  rateValue.className = "stat-value";
+  rateValue.textContent = (data.successRate * 100).toFixed(1) + "%";
+  const rateSub = document.createElement("div");
+  rateSub.className = "stat-sub";
+  rateSub.textContent = "of diagram requests";
+  rate.appendChild(rateLabel);
+  rate.appendChild(rateValue);
+  rate.appendChild(rateSub);
+  container.appendChild(rate);
+}
+
+function renderTwoColTable(container, obj, colA, colB) {
+  if (Object.keys(obj).length === 0) {
+    const note = document.createElement("p");
+    note.className = "empty-note";
+    note.textContent = "No data yet.";
+    container.appendChild(note);
+    return;
+  }
+
+  const entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+  const table = document.createElement("table");
+  table.className = "intel-table";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const thA = document.createElement("th");
+  thA.textContent = colA;
+  const thB = document.createElement("th");
+  thB.className = "count";
+  thB.textContent = colB;
+  headRow.appendChild(thA);
+  headRow.appendChild(thB);
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  entries.forEach(function(pair) {
+    const tr = document.createElement("tr");
+    const tdKey = document.createElement("td");
+    tdKey.textContent = pair[0];
+    const tdVal = document.createElement("td");
+    tdVal.className = "count";
+    tdVal.textContent = typeof pair[1] === "number" ? pair[1].toLocaleString() : String(pair[1]);
+    tr.appendChild(tdKey);
+    tr.appendChild(tdVal);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderTemplates(byTemplateId) {
+  const container = $("templates-content");
+
+  if (Object.keys(byTemplateId).length === 0) {
+    const note = document.createElement("p");
+    note.className = "empty-note";
+    note.textContent = "No template usage yet.";
+    container.appendChild(note);
+    return;
+  }
+
+  const entries = Object.entries(byTemplateId).sort((a, b) => b[1] - a[1]);
+
+  const table = document.createElement("table");
+  table.className = "intel-table";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const thId = document.createElement("th");
+  thId.textContent = "Template ID";
+  const thCount = document.createElement("th");
+  thCount.className = "count";
+  thCount.textContent = "Count";
+  headRow.appendChild(thId);
+  headRow.appendChild(thCount);
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  entries.forEach(function(pair) {
+    const tr = document.createElement("tr");
+    const tdId = document.createElement("td");
+    tdId.textContent = pair[0];
+    const tdCount = document.createElement("td");
+    tdCount.className = "count";
+    tdCount.textContent = typeof pair[1] === "number" ? pair[1].toLocaleString() : String(pair[1]);
+    tr.appendChild(tdId);
+    tr.appendChild(tdCount);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderReferrers(byReferrer) {
+  const container = $("referrers-content");
+
+  if (Object.keys(byReferrer).length === 0) {
+    const note = document.createElement("p");
+    note.className = "empty-note";
+    note.textContent = "No referrer data yet.";
+    container.appendChild(note);
+    return;
+  }
+
+  const entries = Object.entries(byReferrer).sort((a, b) => b[1] - a[1]);
+
+  const table = document.createElement("table");
+  table.className = "intel-table";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const thRef = document.createElement("th");
+  thRef.textContent = "Referrer";
+  const thCount = document.createElement("th");
+  thCount.className = "count";
+  thCount.textContent = "Count";
+  headRow.appendChild(thRef);
+  headRow.appendChild(thCount);
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  entries.forEach(function(pair) {
+    const tr = document.createElement("tr");
+    const tdRef = document.createElement("td");
+    tdRef.textContent = pair[0];
+    const tdCount = document.createElement("td");
+    tdCount.className = "count";
+    tdCount.textContent = typeof pair[1] === "number" ? pair[1].toLocaleString() : String(pair[1]);
+    tr.appendChild(tdRef);
+    tr.appendChild(tdCount);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderDailyVolume(dailyVolume) {
+  const container = $("daily-volume-content");
+
+  if (Object.keys(dailyVolume).length === 0) {
+    const note = document.createElement("p");
+    note.className = "empty-note";
+    note.textContent = "No daily volume data yet.";
+    container.appendChild(note);
+    return;
+  }
+
+  const entries = Object.entries(dailyVolume).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+
+  const maxCount = entries.reduce(function(m, pair) {
+    return Math.max(m, typeof pair[1] === "number" ? pair[1] : 0);
+  }, 1);
+
+  const list = document.createElement("div");
+  list.className = "bar-list";
+
+  entries.forEach(function(pair) {
+    const count = typeof pair[1] === "number" ? pair[1] : 0;
+    const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+
+    const row = document.createElement("div");
+    row.className = "bar-row";
+
+    const dateSpan = document.createElement("span");
+    dateSpan.className = "bar-date";
+    dateSpan.textContent = pair[0];
+
+    const track = document.createElement("div");
+    track.className = "bar-track";
+
+    const fill = document.createElement("div");
+    fill.className = "bar-fill";
+    fill.style.width = pct + "%";
+
+    track.appendChild(fill);
+
+    const countSpan = document.createElement("span");
+    countSpan.className = "bar-count";
+    countSpan.textContent = count.toLocaleString();
+
+    row.appendChild(dateSpan);
+    row.appendChild(track);
+    row.appendChild(countSpan);
+    list.appendChild(row);
+  });
+
+  container.appendChild(list);
+}
+</script>
+</body>
+</html>
