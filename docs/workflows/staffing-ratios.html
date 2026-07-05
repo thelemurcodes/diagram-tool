@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Staffing Ratio Planning for Senior Care &amp; Assisted Living — Free Flowchart Tool</title>
+<meta name="description" content="How senior care and assisted living facilities plan and maintain required staffing ratios: determining required coverage for census and acuity, building shift schedules, managing call-outs and backfill, documenting actual vs. required ratios for compliance, and escalating when a shift cannot be safely staffed. Generate a free editable flowchart of your facility's staffing ratio workflow." />
+<style>
+  :root{
+    --brand:        #1f7a6d;
+    --brand-dark:   #155a50;
+    --brand-soft:   #e8f3f1;
+    --accent:       #e08a3c;
+    --accent-dark:  #c5701f;
+    --ink:          #1c2b29;
+    --muted:        #5f726f;
+    --line:         #dbe6e3;
+    --bg:           #f6f9f8;
+    --card:         #ffffff;
+    --radius:       14px;
+    --shadow:       0 1px 3px rgba(20,40,38,.08), 0 8px 24px rgba(20,40,38,.06);
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:28px 18px 56px}
+
+  header.tool-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px;flex-shrink:0}
+  .brand-text h1.site-name{font-size:17px;margin:0;font-weight:750;letter-spacing:-.3px}
+  .brand-text p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .head-cta{font-size:14px;font-weight:650;color:#fff;background:var(--accent);padding:9px 16px;border-radius:999px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .head-cta:hover{background:var(--accent-dark)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 30px;margin-bottom:20px}
+  @media(max-width:540px){.card{padding:20px 16px}}
+
+  h1.page-title{font-size:clamp(22px,4vw,30px);font-weight:800;letter-spacing:-.4px;margin:0 0 10px;line-height:1.25}
+  .subtitle{font-size:16px;color:var(--muted);margin:0 0 24px;max-width:680px}
+
+  h2{font-size:18px;font-weight:750;letter-spacing:-.2px;margin:0 0 10px;color:var(--ink)}
+  h3{font-size:15px;font-weight:700;margin:0 0 7px;color:var(--brand-dark)}
+  p{margin:0 0 14px}
+  p:last-child{margin-bottom:0}
+  ul{margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:5px}
+
+  .phase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:16px 0}
+  .phase-card{background:var(--brand-soft);border:1px solid #c4e0db;border-radius:10px;padding:14px 16px}
+  .phase-card h3{color:var(--brand-dark);margin-bottom:4px}
+  .phase-card p{font-size:13.5px;color:var(--muted);margin:0}
+
+  .cta-block{background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;border-radius:var(--radius);padding:28px 30px;margin-bottom:20px}
+  .cta-block h2{color:#fff;margin:0 0 6px}
+  .cta-block p{color:rgba(255,255,255,.9);font-size:14.5px;margin:0 0 16px;max-width:480px}
+  .cta-pair{display:flex;gap:12px;flex-wrap:wrap}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .cta-btn:hover{background:var(--accent-dark)}
+  .cta-btn.secondary{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.4)}
+  .cta-btn.secondary:hover{background:rgba(255,255,255,.25)}
+
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:3px 8px;margin-bottom:14px}
+
+  footer.tool-foot{margin-top:30px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer.tool-foot a{color:var(--brand);font-weight:600;text-decoration:none}
+  footer.tool-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="tool-head">
+    <a class="brand" href="../index.html">
+      <div class="logo">SC</div>
+      <div class="brand-text">
+        <h1 class="site-name">Senior Care Diagram Maker</h1>
+        <p>Free workflow tools for senior care teams</p>
+      </div>
+    </a>
+    <a class="head-cta" href="../index.html?tmpl=staffing-ratios">Try the tool free →</a>
+  </header>
+
+  <div class="tag">Workflow Guide</div>
+  <h1 class="page-title">Staffing Ratio Planning in Senior Care</h1>
+  <p class="subtitle">How assisted living and skilled nursing facilities determine required staffing levels, build shift schedules to meet them, manage call-outs and backfill, document actual versus required ratios for compliance, and escalate safely when a shift cannot be covered.</p>
+
+  <div class="cta-block">
+    <h2>Map your facility's staffing ratio workflow</h2>
+    <p>Use our free tool to generate an editable flowchart pre-loaded with your staffing ratio planning process. No login required.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=staffing-ratios">Open the staffing ratio flowchart →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Why staffing ratios require active management</h2>
+    <p>Adequate staffing is one of the most consequential operational decisions a senior care facility makes every day. Unlike a fixed resource, staffing levels fluctuate continuously — census changes, acuity shifts, employees call out, and agency availability varies. A ratio that was correct at the start of a shift can become inadequate by midshift if a high-acuity admission arrives or a nurse leaves early.</p>
+    <p>The staffing ratio workflow is therefore not a single decision made at scheduling time — it is a repeating cycle that runs from the planning horizon (building the master schedule weeks in advance) through the real-time decisions that happen when a shift is already in progress. Facilities that manage this cycle deliberately — with documented standards, clear backfill procedures, and a defined escalation path — are better positioned both for resident safety and for compliance documentation when regulators ask how ratios were maintained.</p>
+    <p>The specific numerical ratios required vary widely by state, level of care (skilled nursing, assisted living, memory care, residential care), and resident census. This page describes the workflow shape — the decisions and handoffs — rather than any specific ratio figures or regulatory citations, which must come from the applicable state regulations and facility licensure conditions.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 1: Determining the required ratio for current census and acuity</h2>
+
+    <h3>Starting from census and level of care</h3>
+    <p>The first input to any staffing calculation is the current census — how many residents are in the facility at the start of the period being planned. Census fluctuates daily as residents are admitted, discharged, hospitalized, or transferred, so the staffing calculation needs to reflect the actual occupancy for each shift, not a static budgeted figure. A facility that is licensed for 80 beds but has 64 residents on a given day may have a different minimum staff requirement than if it were at full census.</p>
+
+    <h3>Layering in acuity</h3>
+    <p>Census alone understates complexity. Two residents with identical care plans consume very different nursing time if one is continent, ambulatory, and cognitively intact while the other requires two-person transfers, total care with meals, and frequent redirection. Acuity-adjusted staffing takes the census as a starting point and weights it based on resident care needs — often tracked through the care plan classification, MDS assessments in skilled nursing settings, or an internal acuity scoring tool.</p>
+    <p>A unit with a high concentration of residents who require significant direct care time — total-care residents, those receiving wound care, those with complex behavioral needs — may need staffing above the regulatory floor even when census is at a typical level. Charge nurses and the DON are typically the primary judgment holders for this acuity adjustment; the staffing plan should document how acuity is factored in so the rationale is visible if reviewed.</p>
+
+    <h3>Shift-level calculation</h3>
+    <p>The required ratio is typically calculated per shift — day, evening, and night — because resident care demands and therefore the appropriate staffing level differ across the 24-hour cycle. Many facilities apply different ratios by shift as part of their staffing policy. The calculation for each shift should be completed before or at the start of that shift, not assumed to be constant from the prior period.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 2: Building the shift schedule to meet required ratios</h2>
+
+    <h3>The master schedule as a planning baseline</h3>
+    <p>The master schedule — typically built two to four weeks in advance — establishes who is assigned to each shift across the scheduling period. Schedulers build the master schedule against the anticipated census and acuity, applying the staffing model to determine how many staff of each classification are needed on each shift. The master schedule also accounts for known variables: approved PTO, part-time hours agreements, weekend rotation, and any licensing requirements that determine the minimum qualifications of staff present at any given time (such as a licensed nurse on duty at all times).</p>
+
+    <h3>Anticipated gaps and pre-planned coverage</h3>
+    <p>A realistic master schedule builds in some buffer for anticipated gaps rather than scheduling exactly to the minimum for every shift. Schedulers who know from historical data that a particular shift or day of week has a higher call-out rate can pre-schedule additional staff or flag on-call resources for those periods. This proactive approach reduces the frequency of scrambled last-minute coverage, which carries both a cost premium (agency rates, overtime) and a quality risk (unfamiliar staff, coverage gaps during the transition).</p>
+
+    <h3>Position-level scheduling</h3>
+    <p>Staffing to ratio requires scheduling by classification, not just headcount. The ratio requirement may specify a minimum number of licensed nurses (RNs or LPNs/LVNs), a minimum number of CNAs, or both. Scheduling a shift with adequate total bodies but the wrong mix of qualifications — for example, all CNAs and no nurse — does not satisfy a ratio that requires a licensed nurse on duty. The schedule should track classification separately and validate against the ratio requirement for each shift before it is finalized.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: The call-out and backfill workflow</h2>
+
+    <h3>Receiving and documenting the call-out</h3>
+    <p>When a staff member calls out, the first step is to record it — who called out, what shift, what classification, and when the notification was received. This documentation matters both for attendance tracking and for demonstrating that the facility's response was timely. Many facilities require call-outs to be reported to the charge nurse or nursing supervisor by a defined number of hours before the shift start; the policy should specify the minimum notice window and what happens when it isn't met.</p>
+
+    <h3>Immediate ratio impact assessment</h3>
+    <p>The charge nurse or supervisor receiving the call-out immediately calculates the ratio impact: does the absence drop the shift below the required minimum? A call-out from a position that leaves the shift at or above ratio may not trigger the full backfill process, though documenting the absence and the coverage assessment is still appropriate. A call-out that drops the shift below the minimum ratio requires immediate backfill action.</p>
+
+    <h3>Working the on-call list</h3>
+    <p>Most facilities maintain an on-call or availability list — staff who have agreed to be available for call-in on a rotating or voluntary basis. The backfill workflow typically starts here: the supervisor contacts on-call staff in order of the rotation or list, offering the shift. Contacts are documented — who was called, at what time, and whether they accepted or declined — creating a record that the facility made reasonable attempts to fill the shift.</p>
+
+    <h3>Agency staffing as a secondary option</h3>
+    <p>If the on-call list does not produce coverage, the next step is typically contacting agency or registry staffing. Agency staff carry a significant cost premium over regular and overtime rates, so most facilities treat agency as a secondary rather than first-call option. The supervisor should notify management when agency is needed — both because of cost visibility and because agency staff may be unfamiliar with the facility's residents and procedures, which requires an orientation step before the shift begins.</p>
+
+    <h3>Mandatory overtime as a last resort</h3>
+    <p>When on-call options and agency have been exhausted or are unavailable, mandatory overtime — requiring an existing staff member to extend their shift or cover the open shift — may be the only remaining option to maintain ratio. Mandatory overtime is a last resort because of the safety and legal implications: fatigued staff carry higher error risk, and many states have specific restrictions on the circumstances under which overtime can be mandated, particularly for nurses. When mandatory overtime is invoked, it should be documented explicitly as such, with the reason (all other backfill options were exhausted), so the record reflects appropriate process.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 4: Documenting actual versus required ratios per shift</h2>
+
+    <h3>What the compliance record needs to show</h3>
+    <p>Regulators reviewing staffing compliance want to see, for each shift, both what the facility was required to have and what it actually had. A staffing record that shows only who worked — without reference to the required ratio for that shift — is incomplete for compliance purposes. The documentation should tie together: the census at shift start, the required ratio derived from that census and applicable policy, the actual staff on duty by classification, and whether the shift met, exceeded, or fell below the required ratio.</p>
+
+    <h3>Shift-level staffing logs</h3>
+    <p>Many facilities maintain a daily or per-shift staffing log — a form or electronic record completed by the charge nurse at the start of each shift that captures the actual vs. required comparison. This log is the primary compliance document. It should be completed consistently for every shift, not only on days when a shortage is anticipated or occurs. Gaps in the log — shifts with no documentation — create compliance exposure even when the facility was actually adequately staffed.</p>
+
+    <h3>Retention and accessibility</h3>
+    <p>Staffing documentation is subject to retention requirements that vary by state and facility type, typically ranging from one to three years. Records should be stored in a format that can be retrieved quickly during a survey — surveyors may request staffing logs for a specific date range and expect them to be produced within the survey visit timeframe. Facilities that maintain staffing records on paper should have a consistent filing system; those using scheduling software should confirm that historical shift-level data is exportable and auditable.</p>
+
+    <h3>Variance tracking and trend analysis</h3>
+    <p>Beyond the shift-level record, facilities benefit from aggregating staffing variance data over time. Which shifts consistently run short? Which units have the highest call-out rates? What is the agency utilization trend? This trend data informs the master schedule (building in more buffer on high-risk shifts), the hiring plan (identifying where permanent staff are most needed), and the quality assurance discussion (whether staffing patterns correlate with incident rates or care quality indicators).</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 5: The escalation path when a shift cannot be safely staffed</h2>
+
+    <h3>When the backfill process fails to produce coverage</h3>
+    <p>The escalation path is the defined sequence of notifications and decisions that occurs when the backfill workflow has run its course and the shift is still projected to be below the required ratio. Having a written escalation path — who is notified, in what order, with what decision authority — is both a safety imperative and a documentation protection. A facility that took no escalation steps when faced with an unsafe staffing level is in a far worse regulatory position than one that documented every step of its response.</p>
+
+    <h3>Supervisor and director notification</h3>
+    <p>The first escalation step is notification to the charge nurse's supervisor or the director of nursing. This notification should happen early enough in the backfill process that senior leadership has time to explore additional options — not as a final notification after the shift has already started understaffed. The DON or administrator may have access to resources or authority that the charge nurse does not: approving additional overtime, authorizing an emergency agency call, or deciding to bring in leadership staff to cover the clinical floor.</p>
+
+    <h3>Census and admission hold</h3>
+    <p>When a shift cannot be adequately staffed at the current census, one operational lever is to hold new admissions for the duration of the staffing shortage. Admitting a new resident — particularly a high-acuity admission — when the facility is already below ratio exacerbates the safety risk and complicates the compliance picture. The decision to place an admission hold should be made by the administrator or DON in consultation with the clinical team, and it should be documented with the rationale and the duration.</p>
+
+    <h3>State agency notification</h3>
+    <p>Some states require facilities to report to the licensing agency when they fall below minimum required staffing levels for a shift. The threshold for required reporting, the reporting timeline, and the reporting mechanism vary by state. Facilities should have their notification obligations documented in their staffing policy so charge nurses and supervisors know whether and when a state call is required — and so that notification happens within the required window, not as an afterthought.</p>
+
+    <h3>Incident documentation</h3>
+    <p>Any shift where the facility operated below the required staffing ratio should be documented as an incident or variance in the facility's quality monitoring system, regardless of whether a state notification was required. The incident record should capture: the shift date and time, the required ratio and actual ratio, the backfill steps taken, the reason coverage could not be obtained, and the actions taken in response (admission hold, supervisor on floor, etc.). This documentation demonstrates a good-faith response and provides the data needed for root-cause analysis and corrective action planning.</p>
+
+    <h3>Post-incident review and corrective action</h3>
+    <p>Each staffing shortage incident should feed into a review process — either a structured root-cause analysis for significant or recurring events, or a lighter review for isolated incidents. The questions are: Was this a one-time circumstance (an unavoidable simultaneous call-out) or a symptom of a systemic gap (chronic under-scheduling, inadequate on-call pool, high turnover in a specific classification)? The corrective action is sized to the answer. A systemic gap requires a structural response — adjusting the master schedule, growing the on-call pool, accelerating a hire — not just documentation that the incident occurred.</p>
+  </div>
+
+  <div class="card">
+    <h2>Key pressure points in the staffing ratio cycle</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3>Acuity shifts mid-schedule</h3>
+        <p>A census that was adequately staffed when the schedule was built can become under-staffed after a cluster of high-acuity admissions — requiring mid-cycle adjustments to the schedule or supplemental coverage.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Night and weekend coverage</h3>
+        <p>Call-out rates and agency availability are both typically worse on nights and weekends. Facilities with thin on-call pools for these shifts are most vulnerable to ratio shortfalls.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Classification-specific shortages</h3>
+        <p>A shortage of licensed nurses is qualitatively different from a CNA shortage — it may trigger different regulatory requirements and has a different escalation path. Staffing policies should address each classification separately.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Agency staff orientation</h3>
+        <p>Agency staff unfamiliar with the facility's residents, layout, and procedures carry an onboarding burden even in emergencies. Having a documented rapid-orientation checklist for agency staff reduces this risk.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Documentation consistency</h3>
+        <p>Facilities that document staffing only when a shortage occurs create a record that highlights problems without establishing a baseline. Consistent shift-level documentation — every shift — is more defensible.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Mandatory overtime fatigue</h3>
+        <p>Frequent mandatory overtime erodes staff retention and increases error risk. Facilities relying on it regularly are signaling a structural staffing gap that the master schedule and hiring plan need to address.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Connecting staffing ratios to quality assurance</h2>
+    <p>Staffing levels are not just a compliance metric — they are a leading indicator for care quality outcomes. Incident rates, falls, pressure injury occurrence, and medication errors all correlate with staffing adequacy. Facilities that track staffing variance data alongside quality indicators in their QAPI process are better positioned to identify when a staffing pattern is contributing to a care quality trend — and to intervene before the pattern becomes a survey deficiency.</p>
+    <p>The staffing ratio workflow should therefore be connected to the QAPI committee's data sources, not managed in isolation by the scheduling department. When the QAPI committee asks "what contributed to the increase in falls on the evening shift last quarter?", the answer may involve staffing data — and that data needs to be accessible, consistent, and in a format the committee can analyze.</p>
+    <p>Similarly, staff turnover data feeds back into the staffing ratio challenge. High turnover increases the proportion of shifts covered by newer employees or agency staff, which can affect care quality even when numerical ratios are technically met. Monitoring turnover by unit and classification, and understanding its drivers, is part of the same operational picture as managing daily ratios.</p>
+  </div>
+
+  <div class="cta-block">
+    <h2>Generate your facility's staffing ratio flowchart — free</h2>
+    <p>The template is pre-loaded with the workflow steps described on this page. Open it, edit the prompt to match your facility's specific process, and generate an editable Mermaid flowchart you can refine, copy, and share.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=staffing-ratios">Open the staffing ratio flowchart →</a>
+    </div>
+  </div>
+
+  <footer class="tool-foot">
+    <a href="../index.html">Senior Care Diagram Maker</a>
+    &nbsp;·&nbsp; <a href="../terms.html" target="_blank" rel="noopener">Terms of Use</a>
+    &nbsp;·&nbsp; Free workflow tools for senior care &amp; assisted living teams
+  </footer>
+</div>
+</body>
+</html>
