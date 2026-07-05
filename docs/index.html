@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Free Senior Care Diagram Maker — Describe it or paste a policy, get a flowchart</title>
-<meta name="description" content="Free tool for senior care & assisted living teams. Describe any process — or paste a policy you already have — and get an editable flowchart instantly. MAR, evacuation, fall response, incident reporting, and more." />
+<meta name="description" content="Free tool for senior care & assisted living teams. Describe any process — or paste a policy you already have — and get an editable flowchart instantly. MAR, evacuation, fall response, incident reporting, intake, and more." />
 <style>
   /* ============================================================
      THEME — swap these to match your brand
@@ -237,6 +237,7 @@
       <div class="tmpls" id="tmpls"></div>
       <a class="tmpl-detail-link" href="workflows/med-pass.html">About the medication administration (MAR) workflow →</a>
       <a class="tmpl-detail-link" href="workflows/fall-incident-response.html">About the fall response &amp; incident reporting workflow →</a>
+      <a class="tmpl-detail-link" href="workflows/admission-discharge.html">About the resident admission &amp; discharge workflow →</a>
 
       <!-- Local-test bar: visible only when no production endpoint is configured -->
       <div class="testbar hidden" id="testbar">
@@ -388,6 +389,11 @@ const TEMPLATES = [
     t:"Resident admission & intake", d:"Inquiry through move-in day",
     type:"flowchart",
     p:"Map our resident admission process from the first family inquiry through move-in day. Include the initial phone screening, in-person tour, clinical needs assessment, financial/insurance review, paperwork and agreements, room assignment, care plan setup, and the welcome orientation on move-in day." },
+
+  { id:"discharge-transfer",
+    t:"Resident discharge & transfer", d:"Planned move-out, transfer, or level-of-care change",
+    type:"flowchart",
+    p:"Map our resident discharge and transfer process. Include the physician discharge order or family-initiated move-out notice, confirming the required notice period, the discharge planning meeting with resident and family, coordinating with the receiving facility or family for level-of-care transfers, arranging medication and medical records transfer, finalizing the care plan and discharge summary, room turnover, and final billing and move-out logistics." },
 
   { id:"shift-handoff",
     t:"Shift change & handoff (SBAR)", d:"Clean handoff with no gaps",
@@ -672,7 +678,7 @@ async function render(code){
     requestAnimationFrame(fitView);
     return true;
   }catch(err){
-    showMsg("That diagram came back with a syntax error. Try clicking “Edit code” to tweak it, or rephrase and generate again.", "err");
+    showMsg("That diagram came back with a syntax error. Try clicking "Edit code" to tweak it, or rephrase and generate again.", "err");
     $("empty").classList.remove("hidden");
     console.warn("Mermaid render error:", err);
     return false;
