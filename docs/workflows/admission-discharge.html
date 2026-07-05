@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resident Admission &amp; Discharge Workflow for Senior Care &amp; Assisted Living — Free Flowchart Tool</title>
+<meta name="description" content="Understand the full resident lifecycle in senior care: the admission and intake process from inquiry through move-in, and the discharge and transfer process from planning through move-out. Generate free editable flowcharts of your facility's workflows." />
+<style>
+  :root{
+    --brand:        #1f7a6d;
+    --brand-dark:   #155a50;
+    --brand-soft:   #e8f3f1;
+    --accent:       #e08a3c;
+    --accent-dark:  #c5701f;
+    --ink:          #1c2b29;
+    --muted:        #5f726f;
+    --line:         #dbe6e3;
+    --bg:           #f6f9f8;
+    --card:         #ffffff;
+    --radius:       14px;
+    --shadow:       0 1px 3px rgba(20,40,38,.08), 0 8px 24px rgba(20,40,38,.06);
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:28px 18px 56px}
+
+  header.tool-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px;flex-shrink:0}
+  .brand-text h1.site-name{font-size:17px;margin:0;font-weight:750;letter-spacing:-.3px}
+  .brand-text p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .head-cta{font-size:14px;font-weight:650;color:#fff;background:var(--accent);padding:9px 16px;border-radius:999px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .head-cta:hover{background:var(--accent-dark)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 30px;margin-bottom:20px}
+  @media(max-width:540px){.card{padding:20px 16px}}
+
+  h1.page-title{font-size:clamp(22px,4vw,30px);font-weight:800;letter-spacing:-.4px;margin:0 0 10px;line-height:1.25}
+  .subtitle{font-size:16px;color:var(--muted);margin:0 0 24px;max-width:680px}
+
+  h2{font-size:18px;font-weight:750;letter-spacing:-.2px;margin:0 0 10px;color:var(--ink)}
+  h3{font-size:15px;font-weight:700;margin:0 0 7px;color:var(--brand-dark)}
+  p{margin:0 0 14px}
+  p:last-child{margin-bottom:0}
+  ul{margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:5px}
+
+  .phase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:16px 0}
+  .phase-card{background:var(--brand-soft);border:1px solid #c4e0db;border-radius:10px;padding:14px 16px}
+  .phase-card h3{color:var(--brand-dark);margin-bottom:4px}
+  .phase-card p{font-size:13.5px;color:var(--muted);margin:0}
+
+  .cta-block{background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;border-radius:var(--radius);padding:28px 30px;margin-bottom:20px}
+  .cta-block h2{color:#fff;margin:0 0 6px}
+  .cta-block p{color:rgba(255,255,255,.9);font-size:14.5px;margin:0 0 16px;max-width:480px}
+  .cta-pair{display:flex;gap:12px;flex-wrap:wrap}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .cta-btn:hover{background:var(--accent-dark)}
+  .cta-btn.secondary{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.4)}
+  .cta-btn.secondary:hover{background:rgba(255,255,255,.25)}
+
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:3px 8px;margin-bottom:14px}
+
+  footer.tool-foot{margin-top:30px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer.tool-foot a{color:var(--brand);font-weight:600;text-decoration:none}
+  footer.tool-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="tool-head">
+    <a class="brand" href="../index.html">
+      <div class="logo">SC</div>
+      <div class="brand-text">
+        <h1 class="site-name">Senior Care Diagram Maker</h1>
+        <p>Free workflow tools for senior care teams</p>
+      </div>
+    </a>
+    <a class="head-cta" href="../index.html?tmpl=admission-intake">Try the tool free →</a>
+  </header>
+
+  <div class="tag">Workflow Guide</div>
+  <h1 class="page-title">Resident Admission &amp; Discharge in Senior Care</h1>
+  <p class="subtitle">The two bookends of the resident lifecycle — how assisted living and skilled nursing facilities handle move-in and move-out, and why mapping both as connected workflows matters.</p>
+
+  <div class="cta-block">
+    <h2>Map your facility's admission and discharge workflows</h2>
+    <p>Use our free tool to generate editable flowcharts pre-loaded with your admission or discharge process. No login required.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=admission-intake">Open the admission flowchart →</a>
+      <a class="cta-btn secondary" href="../index.html?tmpl=discharge-transfer">Open the discharge flowchart →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>The resident lifecycle: two workflows, one continuum</h2>
+    <p>Every resident's stay begins with an admission and ends with a discharge or transfer. In practice, these two processes are often owned by different staff members — admissions coordinators and social workers, respectively — and documented separately. But the decisions made at move-in shape what is needed at move-out: the clinical assessment done on admission becomes the comparison baseline for the discharge summary; the financial agreements signed on day one determine how final billing is calculated.</p>
+    <p>Facilities that map both workflows together tend to spot the hand-off gaps — care plan information that doesn't travel with the resident, billing steps that get missed because no one owns the close-out checklist, or family communications that fall through because the discharge process starts too late.</p>
+  </div>
+
+  <div class="card">
+    <h2>The admission and intake workflow</h2>
+
+    <h3>Initial inquiry and screening</h3>
+    <p>Most admissions start with a phone call or family visit. The initial screening answers two questions: does the facility have capacity, and does the prospective resident's care needs fall within the facility's licensed scope? A brief phone screen captures the reason for placement, current living situation, and primary diagnosis or care needs. If the fit looks plausible, a tour is scheduled.</p>
+
+    <h3>Tour and clinical assessment</h3>
+    <p>The in-person tour gives the family a chance to see the facility and gives the clinical team a chance to observe the prospective resident. A pre-admission assessment — conducted by a nurse or the director of nursing — evaluates functional status, mobility, cognitive level, medication complexity, and any specialized care needs such as wound care, feeding assistance, or dementia-related behaviors. This assessment drives the level-of-care determination and the initial rate.</p>
+
+    <h3>Financial and eligibility review</h3>
+    <p>Before paperwork is signed, the admissions coordinator confirms how the stay will be funded — private pay, long-term care insurance, Medicaid, or a combination. For Medicaid residents, eligibility verification happens here. For insurance-funded stays, benefit verification and prior authorization (where required) are completed. The rate and any additional service charges are disclosed in writing.</p>
+
+    <h3>Paperwork and agreements</h3>
+    <p>The admission agreement covers the scope of care, rate, billing cycle, discharge policies, and resident rights. A healthcare proxy, power of attorney documentation, and advance directive (or a documented conversation about the resident's wishes) are collected at this stage. Many facilities also obtain a physician's order for admission, a current medication list, and any diagnostic records relevant to the care plan.</p>
+
+    <h3>Room assignment and move-in day</h3>
+    <p>Room assignment considers the resident's care needs, mobility, and where possible, personal preferences. On move-in day, the care team completes a head-to-toe skin assessment (documented with photos in most facilities), verifies the medication supply, enters the resident into the electronic health record, and assigns a primary caregiver. A welcome orientation — touring common areas, meeting key staff, explaining the daily schedule — helps reduce first-week anxiety for both the resident and the family.</p>
+
+    <h3>Initial care plan</h3>
+    <p>Within the timeframe required by state regulation (commonly 14 to 21 days of admission), a formal care plan is completed and signed. The care plan documents the resident's goals, current functional and clinical needs, the interventions planned to meet those needs, and the staff responsible for each area. It becomes the operational guide for the resident's daily care and the legal record against which survey compliance is measured.</p>
+  </div>
+
+  <div class="card">
+    <h2>Key decision points in admission</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3>Inquiry &amp; screening</h3>
+        <p>Does the facility have capacity and can it meet the resident's care needs within its licensed scope?</p>
+      </div>
+      <div class="phase-card">
+        <h3>Clinical assessment</h3>
+        <p>What level of care is required, and are any specialized services — wound care, memory care, skilled nursing — needed?</p>
+      </div>
+      <div class="phase-card">
+        <h3>Financial review</h3>
+        <p>Is funding confirmed, eligibility verified, and the rate agreement signed before move-in?</p>
+      </div>
+      <div class="phase-card">
+        <h3>Move-in readiness</h3>
+        <p>Is the room ready, medications reconciled, and care plan initiated before the resident arrives?</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>The discharge and transfer workflow</h2>
+
+    <h3>How a discharge begins</h3>
+    <p>Discharges fall into several categories: planned move-out initiated by the family or resident, facility-initiated discharge (when the facility can no longer meet the resident's needs), transfer to a higher level of care such as a skilled nursing or memory care unit, and hospital transfer. Each category triggers a slightly different workflow, but they share the same planning and documentation spine.</p>
+    <p>For a planned discharge, the process typically begins when the family provides notice — the required notice period varies by state and by the terms of the admission agreement, commonly 30 days. For a facility-initiated discharge, most states require written notice to the resident and responsible party within a regulated timeframe and with appeal rights disclosed.</p>
+
+    <h3>Discharge planning meeting</h3>
+    <p>A discharge planning meeting — attended by the resident (if able), family or responsible party, the social worker, the director of nursing, and the admissions or billing coordinator — sets the target discharge date and divides responsibilities. The agenda covers where the resident is going, what clinical hand-off is needed, which records and medications travel with the resident, and what the close-out billing process looks like.</p>
+
+    <h3>Coordinating the receiving setting</h3>
+    <p>For transfers to another facility or level of care, the social worker or care coordinator contacts the receiving facility to confirm acceptance, share clinical information, and schedule the transfer. A face sheet, current medication list, physician orders, the most recent care plan, and any relevant diagnostic history are prepared for transfer. For family-managed discharges to home, the coordination shifts to arranging any home health services, durable medical equipment, or follow-up physician appointments the resident will need.</p>
+
+    <h3>Medication and records transfer</h3>
+    <p>The pharmacy is notified of the discharge date so medications can be reconciled — unused controlled substances are typically destroyed or returned per state and DEA requirements, while non-controlled medications may transfer with the resident or be returned. The medical record is prepared for transfer: a discharge summary, the most recent labs and diagnostic results, the current care plan and physician orders, and a copy of the advance directive. The resident or responsible party is given copies of any documents they are entitled to under state law.</p>
+
+    <h3>Move-out and room turnover</h3>
+    <p>On the discharge day, a staff member walks through the room with the family to account for personal belongings and document the room's condition. Any items left behind are handled per the facility's policy — typically held for a defined period and then disposed of or donated. The room is then cleaned, inspected, and prepared for the next resident.</p>
+
+    <h3>Final billing and close-out</h3>
+    <p>The billing coordinator prepares a final statement covering charges through the discharge date, any ancillary charges not yet billed, and any applicable refunds — for example, a prorated return of pre-paid monthly fees. The security deposit, if applicable, is returned within the timeframe specified in the admission agreement. The resident's record is closed in the EHR and retained per the facility's records retention policy.</p>
+  </div>
+
+  <div class="card">
+    <h2>Key decision points in discharge</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3>Discharge type</h3>
+        <p>Is this a planned family-initiated move, a facility-initiated discharge, a level-of-care transfer, or a hospital transfer? Each has different notice and documentation requirements.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Receiving setting</h3>
+        <p>Is the resident going to another facility, home with family, home with home health services, or to a hospital? Coordination steps differ significantly.</p>
+      </div>
+      <div class="phase-card">
+        <h3>Records and medications</h3>
+        <p>Are the discharge summary, medication list, and orders complete and ready to travel with the resident on the discharge date?</p>
+      </div>
+      <div class="phase-card">
+        <h3>Billing close-out</h3>
+        <p>Are final charges, refunds, and deposit returns calculated and communicated before or on the day of discharge?</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Why mapping both workflows matters</h2>
+    <p>Admission and discharge are where the facility's relationship with a resident and family is most visible — and where impressions are formed that drive referrals and reputation. A smooth, well-organized admission reduces first-week confusion and builds trust. A respectful, complete discharge — with records transferred on time, belongings accounted for, and final billing explained clearly — is what families remember and what they tell others.</p>
+    <p>From an operational standpoint, documented workflows for both processes give staff a shared checklist to follow regardless of who is on duty that day. They surface the decision points that are easy to skip under time pressure — the advance directive conversation at admission, the pharmacy notification at discharge — and they provide a baseline for reviewing what went wrong when a transition doesn't go smoothly.</p>
+    <p>Survey readiness is also a driver. State inspectors and accreditation reviewers commonly examine admission agreements, discharge notices, and the completeness of records transferred at discharge. Facilities with documented, staff-trained processes for both are better positioned to demonstrate compliance.</p>
+  </div>
+
+  <div class="cta-block">
+    <h2>Generate your facility's flowcharts — free</h2>
+    <p>Both templates are pre-loaded with the workflow steps described on this page. Open either one, edit the prompt to match your facility's specific process, and generate an editable Mermaid flowchart you can refine, copy, and share.</p>
+    <div class="cta-pair">
+      <a class="cta-btn" href="../index.html?tmpl=admission-intake">Resident admission &amp; intake →</a>
+      <a class="cta-btn secondary" href="../index.html?tmpl=discharge-transfer">Resident discharge &amp; transfer →</a>
+    </div>
+  </div>
+
+  <footer class="tool-foot">
+    <a href="../index.html">Senior Care Diagram Maker</a>
+    &nbsp;·&nbsp; <a href="../terms.html" target="_blank" rel="noopener">Terms of Use</a>
+    &nbsp;·&nbsp; Free workflow tools for senior care &amp; assisted living teams
+  </footer>
+</div>
+</body>
+</html>
