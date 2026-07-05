@@ -173,6 +173,83 @@
 
   .tmpl-detail-link{display:block;font-size:11.5px;color:var(--brand);font-weight:600;text-decoration:none;margin-top:10px}
   .tmpl-detail-link:hover{text-decoration:underline}
+
+  /* Lead-capture prompt */
+  #lead-prompt{
+    margin-top:14px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px 18px;
+    position:relative;
+    max-width:600px;
+  }
+  #lead-prompt p.lcp-hed{
+    margin:0 0 10px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    padding-right:28px;
+  }
+  #lead-prompt-dismiss{
+    position:absolute;
+    top:10px;
+    right:12px;
+    background:none;
+    border:none;
+    font-size:18px;
+    line-height:1;
+    color:var(--muted);
+    cursor:pointer;
+    padding:2px 5px;
+    border-radius:5px;
+    font-family:var(--font);
+  }
+  #lead-prompt-dismiss:hover{color:var(--ink);background:var(--brand-soft)}
+  .lcp-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+  #lead-email{
+    flex:1;
+    min-width:180px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:9px 12px;
+    font-family:var(--font);
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+  }
+  #lead-email:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  #lead-submit{
+    border:none;
+    background:var(--brand);
+    color:#fff;
+    font-size:13.5px;
+    font-weight:700;
+    padding:9px 16px;
+    border-radius:9px;
+    cursor:pointer;
+    white-space:nowrap;
+    font-family:var(--font);
+    transition:.12s;
+  }
+  #lead-submit:hover{background:var(--brand-dark)}
+  #lead-submit:disabled{opacity:.5;cursor:not-allowed}
+  .lcp-consent{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted);line-height:1.45}
+  .lcp-consent input[type="checkbox"]{
+    margin-top:2px;
+    flex-shrink:0;
+    accent-color:var(--brand);
+    width:15px;
+    height:15px;
+    cursor:pointer;
+  }
+  .lcp-consent a{color:var(--brand);font-weight:600;text-decoration:none}
+  .lcp-consent a:hover{text-decoration:underline}
+  #lead-msg{font-size:12.5px;margin-top:8px;display:none}
+  #lead-msg.show{display:block}
+  #lead-msg.ok{color:var(--ok);font-weight:600}
+  #lead-msg.err{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -283,6 +360,21 @@
 
       <textarea id="code" spellcheck="false" aria-label="Mermaid source code"></textarea>
     </section>
+  </div>
+
+  <!-- Lead-capture prompt: shown once per session after first successful generation -->
+  <div id="lead-prompt" class="hidden" aria-label="Get notified about new templates">
+    <button id="lead-prompt-dismiss" type="button" aria-label="Dismiss">×</button>
+    <p class="lcp-hed">Notify me about new senior-care templates</p>
+    <div class="lcp-row">
+      <input type="email" id="lead-email" placeholder="your@email.com" autocomplete="email" />
+      <button type="button" id="lead-submit" disabled>Notify me</button>
+    </div>
+    <label class="lcp-consent">
+      <input type="checkbox" id="lead-consent" />
+      I agree to be contacted about new templates. See <a href="terms.html" target="_blank" rel="noopener">Terms</a>.
+    </label>
+    <div id="lead-msg"></div>
   </div>
 
   <!-- CTA banner -->
@@ -424,6 +516,7 @@ let activeType = "flowchart";
 let activeMode = "describe";   // "describe" | "policy"
 let currentCode = "";
 let editing = false;
+let activeTemplateId = null;
 
 const MAX_CHARS = { describe: 1500, policy: 8000, authed: 50000 };
 const PLACEHOLDERS = {
@@ -471,6 +564,7 @@ TEMPLATES.forEach(tp => {
 
 /* ---- named template-apply handler (reused by chip clicks and ?tmpl= load) ---- */
 function applyTemplate(tp){
+  activeTemplateId = tp.id;
   setMode("describe");
   $("prompt").value = tp.p;
   setType(tp.type);
@@ -812,6 +906,7 @@ async function generate(){
     $("code").value = currentCode;
     const ok = await render(currentCode);
     enableTools(ok);
+    if (ok) maybeShowLeadPrompt();
   }catch(err){
     handleError(err);
   }finally{
@@ -1008,6 +1103,79 @@ function flash(btn, text){
 $("prompt").addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
 });
+
+/* ---- Lead-capture prompt ---- */
+let leadPromptShown = false;
+
+function maybeShowLeadPrompt(){
+  if (leadPromptShown) return;
+  try {
+    if (sessionStorage.getItem("lc_done")) return;
+  } catch(_){}
+  leadPromptShown = true;
+  $("lead-prompt").classList.remove("hidden");
+}
+
+function dismissLeadPrompt(){
+  $("lead-prompt").classList.add("hidden");
+}
+
+$("lead-prompt-dismiss").onclick = dismissLeadPrompt;
+
+function updateLeadSubmitState(){
+  const email = $("lead-email").value.trim();
+  const checked = $("lead-consent").checked;
+  $("lead-submit").disabled = !(checked && email.length > 0);
+}
+
+$("lead-email").addEventListener("input", updateLeadSubmitState);
+$("lead-consent").addEventListener("change", updateLeadSubmitState);
+
+$("lead-submit").onclick = async () => {
+  const email = $("lead-email").value.trim();
+  const checked = $("lead-consent").checked;
+  if (!checked || !email) return;
+
+  const btn = $("lead-submit");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  $("lead-msg").className = ""; $("lead-msg").style.display = "none";
+
+  try {
+    const res = await fetch(CONFIG.API_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "lead_capture",
+        email,
+        consent: true,
+        termsVersion: "2025-07-14",
+        interestedWorkflow: activeTemplateId,
+        sourcePage: location.pathname
+      })
+    });
+
+    if (res.ok) {
+      try { sessionStorage.setItem("lc_done", "1"); } catch(_){}
+      leadPromptShown = true;
+      $("lead-prompt").innerHTML = '<p style="margin:0;font-size:14px;color:var(--ok);font-weight:600">Thanks — check your email to confirm.</p>';
+    } else {
+      btn.disabled = false;
+      btn.textContent = "Notify me";
+      const lm = $("lead-msg");
+      lm.textContent = "Couldn\u2019t save that, try again shortly.";
+      lm.className = "show err";
+      lm.style.display = "block";
+    }
+  } catch(_) {
+    btn.disabled = false;
+    btn.textContent = "Notify me";
+    const lm = $("lead-msg");
+    lm.textContent = "Couldn\u2019t save that, try again shortly.";
+    lm.className = "show err";
+    lm.style.display = "block";
+  }
+};
 
 /* initial render */
 updateAuthUI();
