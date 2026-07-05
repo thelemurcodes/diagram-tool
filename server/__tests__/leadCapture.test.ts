@@ -54,8 +54,8 @@ function makeReq(
   return { method, body, headers, query };
 }
 
-function makeGetReq(query: Record<string, string> = {}) {
-  return { method: 'GET', body: {}, headers: {}, query };
+function makeGetReq(query: Record<string, string> = {}, headers: Record<string, string> = {}) {
+  return { method: 'GET', body: {}, headers, query };
 }
 
 function makeRes() {
@@ -538,5 +538,79 @@ describe('lead confirm — Firestore errors', () => {
     const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
 
     expect(result.statusCode).toBe(502);
+  });
+});
+
+describe('lead confirm — rate limiting', () => {
+  it('returns 429 after exceeding per-IP confirm limit and does not reach Firestore', async () => {
+    const ip = '10.2.3.4';
+    const limit = LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY;
+
+    mockGet.mockResolvedValue({
+      empty: false,
+      docs: [{ id: 'doc-1', data: () => ({ status: 'pending', confirmToken: 'tok' }) }],
+    });
+
+    for (let i = 0; i < limit; i++) {
+      const r = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip }));
+      expect(r.statusCode).not.toBe(429);
+    }
+
+    mockGet.mockClear();
+
+    const blocked = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip }));
+    expect(blocked.statusCode).toBe(429);
+    expect(typeof blocked.body).toBe('string');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('allows a different IP after another IPs per-IP confirm limit is exhausted', async () => {
+    const ip1 = '10.2.3.4';
+    const ip2 = '10.2.3.5';
+    const day = new Date().toISOString().slice(0, 10);
+    const { hashIp } = require('../index') as { hashIp: (ip: string) => string };
+
+    _hits.set(`confirm:${hashIp(ip1)}`, { count: LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY, resetAt: Date.now() + 86_400_000 });
+
+    const blockedIp1 = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip1 }));
+    expect(blockedIp1.statusCode).toBe(429);
+
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'doc-2', data: () => ({ status: 'pending', confirmToken: 'tok' }) }],
+    });
+
+    const allowedIp2 = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip2 }));
+    expect(allowedIp2.statusCode).toBe(200);
+  });
+
+  it('returns 503 when the global confirm daily cap is exhausted and does not reach Firestore', async () => {
+    const day = new Date().toISOString().slice(0, 10);
+    _hits.set(`lgc:${day}`, { count: LIMITS.LEAD_CONFIRM_GLOBAL_PER_DAY, resetAt: Date.now() + 86_400_000 });
+
+    mockGet.mockClear();
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'some-token' }));
+    expect(result.statusCode).toBe(503);
+    expect(typeof result.body).toBe('string');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('a normal non-rate-limited confirm request still succeeds exactly as before', async () => {
+    const token = 'regression-token';
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'reg-doc', data: () => ({ status: 'pending', confirmToken: token }) }],
+    });
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }, { 'x-forwarded-for': '10.9.9.9' }));
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toBe('Your email is confirmed. Thank you!');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const updateArg = mockUpdate.mock.calls[0][0];
+    expect(updateArg.status).toBe('confirmed');
+    expect(updateArg.confirmToken).toBeNull();
   });
 });
