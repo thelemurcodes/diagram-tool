@@ -170,6 +170,9 @@
   .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 
   .hidden{display:none!important}
+
+  .tmpl-detail-link{display:block;font-size:11.5px;color:var(--brand);font-weight:600;text-decoration:none;margin-top:10px}
+  .tmpl-detail-link:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -232,6 +235,7 @@
 
       <div class="tmpl-h">Or start from a senior-care template</div>
       <div class="tmpls" id="tmpls"></div>
+      <a class="tmpl-detail-link" href="workflows/med-pass.html">About the medication administration (MAR) workflow →</a>
 
       <!-- Local-test bar: visible only when no production endpoint is configured -->
       <div class="testbar hidden" id="testbar">
@@ -339,43 +343,53 @@ const CONFIG = {
 
 /* ---------- Sharpened template set: policy + emergency prep ---------- */
 const TEMPLATES = [
-  { t:"Medication administration (MAR)", d:"Safe med pass with the five rights",
+  { id:"med-pass",
+    t:"Medication administration (MAR)", d:"Safe med pass with the five rights",
     type:"flowchart",
     p:"Create a flowchart of our medication administration workflow for a med pass. Include verifying the MAR, the five rights (right resident, drug, dose, route, time), checking for allergies and interactions, administering, documenting, and what to do if a dose is missed, refused, or an error occurs." },
 
-  { t:"Emergency evacuation plan", d:"Fire / disaster response",
+  { id:"emergency-evacuation",
+    t:"Emergency evacuation plan", d:"Fire / disaster response",
     type:"flowchart",
     p:"Diagram our emergency evacuation procedure for a fire or disaster. Include detection and alarm, notifying staff and 911, assessing resident mobility levels, the evacuation sequence by zone, accounting for all residents and staff, the designated assembly point, and the all-clear / reentry decision." },
 
-  { t:"Fall response & post-fall protocol", d:"Immediate care, assessment, reporting",
+  { id:"fall-response",
+    t:"Fall response & post-fall protocol", d:"Immediate care, assessment, reporting",
     type:"flowchart",
     p:"Diagram our fall response and post-fall protocol. Include immediate scene safety and assessment for injury, notifying the nurse, vital signs and neuro checks, deciding whether to move the resident, calling 911 if needed, notifying family and physician, documenting the fall in the incident report and care plan, root-cause review, and updating the fall-prevention plan." },
 
-  { t:"Incident reporting", d:"Falls, med errors, complaints",
+  { id:"incident-reporting",
+    t:"Incident reporting", d:"Falls, med errors, complaints",
     type:"flowchart",
     p:"Map our incident reporting process for an event such as a fall, medication error, or complaint. Include immediate resident care, notifying the supervisor, documenting the incident report, notifying family and physician, the severity assessment, root-cause review, corrective action, and regulatory reporting if required." },
 
-  { t:"Infection control / outbreak response", d:"Identify, isolate, notify, escalate",
+  { id:"infection-control",
+    t:"Infection control / outbreak response", d:"Identify, isolate, notify, escalate",
     type:"flowchart",
     p:"Diagram our infection control and outbreak response procedure for a suspected communicable infection such as respiratory illness, GI illness, or scabies. Include identifying symptoms, isolating the resident, applying transmission-based precautions and PPE, notifying the nurse and physician, testing, contact tracing within the facility, reporting to public health if thresholds are met, environmental cleaning, and the all-clear criteria." },
 
-  { t:"Lockdown / active threat", d:"Active shooter or intruder response",
+  { id:"lockdown",
+    t:"Lockdown / active threat", d:"Active shooter or intruder response",
     type:"flowchart",
     p:"Diagram our lockdown and active threat response procedure. Include initial recognition of the threat, calling 911, the lockdown announcement, securing residents in safe rooms, locking exterior and interior doors, accounting for staff and visitors, communicating with law enforcement on arrival, and the all-clear and debrief." },
 
-  { t:"Severe weather response", d:"Hurricane, tornado, wildfire, ice storm",
+  { id:"severe-weather",
+    t:"Severe weather response", d:"Hurricane, tornado, wildfire, ice storm",
     type:"flowchart",
     p:"Diagram our severe weather response procedure for an approaching event such as a hurricane, tornado, wildfire, or major winter storm. Include monitoring forecasts and triggers for action, deciding shelter-in-place versus evacuation, securing the building, stocking supplies and medications, family and staff communication, executing the response during the event, and post-event damage assessment and recovery." },
 
-  { t:"Missing resident / elopement", d:"Search, escalation, notification",
+  { id:"elopement",
+    t:"Missing resident / elopement", d:"Search, escalation, notification",
     type:"flowchart",
     p:"Diagram our procedure for a missing resident or elopement. Include the initial discovery and immediate facility search, alerting all staff and securing exits, calling 911 and notifying family, checking surveillance, expanding the search to the surrounding area, documenting the incident, the post-incident review, and updating the resident's care plan and risk assessment." },
 
-  { t:"Resident admission & intake", d:"Inquiry through move-in day",
+  { id:"admission-intake",
+    t:"Resident admission & intake", d:"Inquiry through move-in day",
     type:"flowchart",
     p:"Map our resident admission process from the first family inquiry through move-in day. Include the initial phone screening, in-person tour, clinical needs assessment, financial/insurance review, paperwork and agreements, room assignment, care plan setup, and the welcome orientation on move-in day." },
 
-  { t:"Shift change & handoff (SBAR)", d:"Clean handoff with no gaps",
+  { id:"shift-handoff",
+    t:"Shift change & handoff (SBAR)", d:"Clean handoff with no gaps",
     type:"flowchart",
     p:"Create a flowchart for our shift change and handoff procedure. Include the outgoing staff updating documentation, the SBAR handoff report, reviewing high-risk residents and pending tasks, narcotic count verification, key/equipment transfer, and the incoming staff confirming and signing off." }
 ];
@@ -432,15 +446,25 @@ TEMPLATES.forEach(tp => {
   const b = document.createElement("button");
   b.className = "tmpl";
   b.innerHTML = `<b>${tp.t}</b><span>${tp.d}</span>`;
-  b.onclick = () => {
-    setMode("describe");
-    $("prompt").value = tp.p;
-    setType(tp.type);
-    updateCharCount();
-    $("prompt").focus();
-  };
+  b.onclick = () => applyTemplate(tp);
   tmplWrap.appendChild(b);
 });
+
+/* ---- named template-apply handler (reused by chip clicks and ?tmpl= load) ---- */
+function applyTemplate(tp){
+  setMode("describe");
+  $("prompt").value = tp.p;
+  setType(tp.type);
+  updateCharCount();
+  $("prompt").focus();
+}
+
+/* ---- activate template from ?tmpl= query param on page load ---- */
+const tmplParam = new URLSearchParams(location.search).get("tmpl");
+if (tmplParam) {
+  const match = TEMPLATES.find(tp => tp.id === tmplParam);
+  if (match) applyTemplate(match);
+}
 
 /* ---- mode toggle (Describe / Policy) ---- */
 function setMode(mode){
