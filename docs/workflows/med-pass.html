@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Medication Administration (MAR) Workflow for Senior Care & Assisted Living — Free Flowchart Tool</title>
+<meta name="description" content="Understand the med-pass workflow used in senior care and assisted living: the five rights, MAR verification, missed dose and refusal handling, and medication error escalation. Generate a free editable flowchart of your facility's process." />
+<style>
+  :root{
+    --brand:        #1f7a6d;
+    --brand-dark:   #155a50;
+    --brand-soft:   #e8f3f1;
+    --accent:       #e08a3c;
+    --accent-dark:  #c5701f;
+    --ink:          #1c2b29;
+    --muted:        #5f726f;
+    --line:         #dbe6e3;
+    --bg:           #f6f9f8;
+    --card:         #ffffff;
+    --radius:       14px;
+    --shadow:       0 1px 3px rgba(20,40,38,.08), 0 8px 24px rgba(20,40,38,.06);
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:28px 18px 56px}
+
+  header.tool-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:-.5px;flex-shrink:0}
+  .brand-text h1.site-name{font-size:17px;margin:0;font-weight:750;letter-spacing:-.3px}
+  .brand-text p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .head-cta{font-size:14px;font-weight:650;color:#fff;background:var(--accent);padding:9px 16px;border-radius:999px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap}
+  .head-cta:hover{background:var(--accent-dark)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 30px;margin-bottom:20px}
+  @media(max-width:540px){.card{padding:20px 16px}}
+
+  h1.page-title{font-size:clamp(22px,4vw,30px);font-weight:800;letter-spacing:-.4px;margin:0 0 10px;line-height:1.25}
+  .subtitle{font-size:16px;color:var(--muted);margin:0 0 24px;max-width:680px}
+
+  h2{font-size:18px;font-weight:750;letter-spacing:-.2px;margin:0 0 10px;color:var(--ink)}
+  h3{font-size:15px;font-weight:700;margin:0 0 7px;color:var(--brand-dark)}
+  p{margin:0 0 14px}
+  p:last-child{margin-bottom:0}
+  ul{margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:5px}
+
+  .five-rights{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:16px 0}
+  .right-card{background:var(--brand-soft);border:1px solid #c4e0db;border-radius:10px;padding:14px 16px}
+  .right-card h3{color:var(--brand-dark);margin-bottom:4px}
+  .right-card p{font-size:13.5px;color:var(--muted);margin:0}
+
+  .cta-block{background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;border-radius:var(--radius);padding:28px 30px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+  .cta-block h2{color:#fff;margin:0 0 6px}
+  .cta-block p{color:rgba(255,255,255,.9);font-size:14.5px;margin:0;max-width:480px}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;border:1px solid var(--accent-dark);white-space:nowrap;margin-top:4px}
+  .cta-btn:hover{background:var(--accent-dark)}
+
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:3px 8px;margin-bottom:14px}
+
+  footer.tool-foot{margin-top:30px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer.tool-foot a{color:var(--brand);font-weight:600;text-decoration:none}
+  footer.tool-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="tool-head">
+    <a class="brand" href="../index.html">
+      <div class="logo">SC</div>
+      <div class="brand-text">
+        <h1 class="site-name">Senior Care Diagram Maker</h1>
+        <p>Free workflow tools for senior care teams</p>
+      </div>
+    </a>
+    <a class="head-cta" href="../index.html?tmpl=med-pass">Try the tool free →</a>
+  </header>
+
+  <div class="tag">Workflow Guide</div>
+  <h1 class="page-title">Medication Administration (MAR) Workflow in Senior Care</h1>
+  <p class="subtitle">How the med pass works in assisted living and skilled nursing — common failure points, the five rights, and how to map your facility's process.</p>
+
+  <div class="cta-block">
+    <div>
+      <h2>Map your facility's med-pass workflow</h2>
+      <p>Use our free tool to generate an editable flowchart of your medication administration process — pre-loaded with the MAR workflow. No login required.</p>
+      <a class="cta-btn" href="../index.html?tmpl=med-pass">Open the MAR flowchart tool →</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>What is a med pass?</h2>
+    <p>A <strong>med pass</strong> (medication pass) is the structured round in which trained staff administer scheduled medications to residents according to the facility's Medication Administration Record (MAR). In assisted living and skilled nursing, it is one of the highest-frequency, highest-stakes daily tasks — errors at any step can cause direct harm to residents.</p>
+    <p>The MAR is the legal record that documents what was ordered, when it was due, and whether it was given, refused, held, or missed. Reviewing and signing off on the MAR before and after each administration ties the workflow together.</p>
+    <p>Most facilities run two to four med passes per day (morning, noon, evening, and bedtime), with the morning pass typically being the heaviest — some facilities schedule 20–40 individual administrations before lunch.</p>
+  </div>
+
+  <div class="card">
+    <h2>The five rights of medication administration</h2>
+    <p>The five rights are the foundation of safe medication administration. Every facility's MAR workflow should require staff to verify each right at the time of administration — not just at the cart or during preparation.</p>
+    <div class="five-rights">
+      <div class="right-card">
+        <h3>Right Resident</h3>
+        <p>Verify the resident's identity using at least one identifier beyond room number — name, photo ID, wristband, or verbal confirmation.</p>
+      </div>
+      <div class="right-card">
+        <h3>Right Medication</h3>
+        <p>Confirm the medication name on the label matches the MAR entry exactly, including spelling. Look-alike/sound-alike names are a common source of error.</p>
+      </div>
+      <div class="right-card">
+        <h3>Right Dose</h3>
+        <p>Check that the dose prepared matches the ordered dose on the MAR. For liquid medications, verify the volume; for tablets, verify the count and strength.</p>
+      </div>
+      <div class="right-card">
+        <h3>Right Route</h3>
+        <p>Confirm the administration route (oral, topical, inhaled, etc.) matches the order. Route errors can change a medication's effect dramatically.</p>
+      </div>
+      <div class="right-card">
+        <h3>Right Time</h3>
+        <p>Administer within the facility's designated time window (commonly ±1 hour of scheduled time). Some medications have strict timing requirements.</p>
+      </div>
+    </div>
+    <p>Some frameworks add two or three more rights — <strong>right documentation</strong>, <strong>right reason</strong>, and <strong>right response</strong> (monitoring for effect) — but the core five are the standard across most state regulations and accreditation bodies in the US.</p>
+  </div>
+
+  <div class="card">
+    <h2>The med-pass workflow: key steps</h2>
+    <p>While every facility's workflow differs somewhat, a typical MAR-driven med pass follows this general shape:</p>
+    <ul>
+      <li><strong>Gather the MAR and supplies</strong> — Pull the current MAR (paper or EHR), check for any new orders or order changes since the last pass, and prepare the medication cart.</li>
+      <li><strong>Review orders and allergies</strong> — Before pulling medications for a resident, check for documented allergies and any interactions flagged by the pharmacy or system. Do not skip this step under time pressure.</li>
+      <li><strong>Verify the five rights</strong> — At the resident's side, confirm each right as described above before opening the cup or package.</li>
+      <li><strong>Administer and observe</strong> — Administer the medication and stay with the resident long enough to confirm it was swallowed or applied. Do not leave medications at the bedside unattended.</li>
+      <li><strong>Document immediately</strong> — Sign off on the MAR at the time of administration, not at the end of the round. Late or batch documentation increases error risk.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Common failure points and how they're handled</h2>
+
+    <h3>Missed dose</h3>
+    <p>A missed dose occurs when a scheduled medication is not administered within the acceptable time window — due to the resident being off-site, asleep, or the staff member skipping the resident. The correct response is to document the miss on the MAR (not to leave it unsigned), assess whether a late dose is clinically appropriate, and notify the nurse or supervisor if the medication is high-risk or the miss is recurrent.</p>
+
+    <h3>Refusal</h3>
+    <p>A competent resident has the right to refuse any medication. When refusal occurs, document it on the MAR with a refusal code, explain the purpose of the medication if the resident is willing to listen, and notify the nurse and, for persistent refusals, the prescribing physician. Do not coerce or hide medication in food without an explicit physician order and, where required, documented consent.</p>
+
+    <h3>Medication error</h3>
+    <p>A medication error includes giving the wrong drug, dose, route, or time, or giving medication to the wrong resident. Errors — including near-misses caught before administration — should follow the facility's incident reporting workflow: immediate resident assessment, notification of the nurse and on-call physician, family notification (depending on severity), and a written incident report. Many states require regulatory reporting for errors that cause harm. The goal of the post-error review is identifying system-level causes, not individual blame.</p>
+
+    <h3>Hold orders and PRN medications</h3>
+    <p>Medications marked "hold if" (e.g., hold if systolic blood pressure below 90) require a brief clinical check before administration. PRN (as-needed) medications require an assessment confirming the condition they treat is present, followed by documentation of both the reason for administration and the resident's response.</p>
+  </div>
+
+  <div class="card">
+    <h2>Why mapping the workflow matters</h2>
+    <p>A written or diagrammed workflow does three practical things for a senior care team. First, it creates a shared mental model — everyone from the new hire to the charge nurse agrees on what "correct" looks like. Second, it surfaces decision points that are often implicit and untrained, like what exactly constitutes a refusal vs. a delay, or when to call the physician vs. when to document and monitor. Third, it provides a baseline for root-cause review after an error: you can ask "at which step did the process break down?" rather than "what did this person do wrong?"</p>
+    <p>Survey readiness is the practical driver in many facilities. During a state inspection or AHCA survey, having a documented, staff-trained medication administration procedure — and evidence that it matches what staff actually do — reduces deficiency citations significantly.</p>
+  </div>
+
+  <div class="cta-block">
+    <div>
+      <h2>Generate your MAR flowchart — free</h2>
+      <p>The tool loads the med-pass workflow description automatically. Edit the prompt to match your facility's specific steps, then generate an editable Mermaid flowchart you can refine, copy, and share.</p>
+      <a class="cta-btn" href="../index.html?tmpl=med-pass">Open the MAR flowchart tool →</a>
+    </div>
+  </div>
+
+  <footer class="tool-foot">
+    <a href="../index.html">Senior Care Diagram Maker</a>
+    &nbsp;·&nbsp; <a href="../terms.html" target="_blank" rel="noopener">Terms of Use</a>
+    &nbsp;·&nbsp; Free workflow tools for senior care &amp; assisted living teams
+  </footer>
+</div>
+</body>
+</html>
