@@ -17,7 +17,13 @@
      collection `diagram_logs` so you can analyse what facilities are mapping.
      IP addresses are SHA-256 hashed before storage (never raw IPs).
 
-   Deploy: see deploy.sh / SETUP.md */
+   Deploy: see deploy.sh / SETUP.md
+
+   Required env vars (set in deploy.sh alongside ANTHROPIC_API_KEY):
+     ANTHROPIC_API_KEY  — Anthropic API key
+     RESEND_API_KEY     — Resend API key for confirmation emails (lead capture)
+     FUNCTION_URL       — public base URL of this Cloud Function (e.g. https://...run.app),
+                          used to build the confirmation link in opt-in emails */
 
 const functions = require('@google-cloud/functions-framework');
 const crypto    = require('crypto');
@@ -137,6 +143,38 @@ async function writeLead(doc) {
   });
 }
 
+/* ---- send double opt-in confirmation email via Resend ---- */
+async function sendConfirmEmail(email, token) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) {
+    console.warn('RESEND_API_KEY not set — confirmation email not sent');
+    return;
+  }
+  const functionUrl = process.env.FUNCTION_URL || '';
+  const confirmLink = `${functionUrl}?action=lead_confirm&token=${token}`;
+  try {
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${resendKey}`
+      },
+      body: JSON.stringify({
+        from: 'Senior Care Diagram Maker <noreply@mail.seniorcarediagram.com>',
+        to: email,
+        subject: 'Please confirm your email',
+        html: `<p>Thanks for signing up! Please confirm your email address:</p><p><a href="${confirmLink}">Confirm my email</a></p>`
+      })
+    });
+    if (!emailRes.ok) {
+      const detail = await emailRes.text().catch(() => '');
+      console.warn('Resend API error:', emailRes.status, detail.slice(0, 200));
+    }
+  } catch (e) {
+    console.warn('Confirmation email send failed:', e.message);
+  }
+}
+
 /* HTTP handler  (entry point name = "diagram", referenced in deploy.sh) */
 functions.http('diagram', async (req, res) => {
   const origin = process.env.ALLOWED_ORIGIN || '*';
@@ -150,6 +188,41 @@ functions.http('diagram', async (req, res) => {
     res.set('Access-Control-Max-Age', '86400');
     return res.status(204).send('');
   }
+
+  // Lead confirm GET path — gated by LEAD_CAPTURE_ENABLED
+  if (
+    req.method === 'GET' &&
+    process.env.LEAD_CAPTURE_ENABLED === 'true' &&
+    req.query &&
+    req.query.action === 'lead_confirm' &&
+    req.query.token
+  ) {
+    const token = String(req.query.token);
+    if (!db) return res.status(502).send('Service unavailable');
+    let snapshot;
+    try {
+      snapshot = await db.collection('leads').where('confirmToken', '==', token).limit(1).get();
+    } catch (e) {
+      console.warn('Lead confirm Firestore query failed:', e.message);
+      return res.status(502).send('Could not look up confirmation token');
+    }
+    if (snapshot.empty) {
+      return res.status(400).send('This confirmation link is invalid or has already been used.');
+    }
+    const docSnap = snapshot.docs[0];
+    const data = docSnap.data();
+    if (data.status === 'confirmed') {
+      return res.status(200).send('You are already confirmed. No further action needed.');
+    }
+    try {
+      await db.collection('leads').doc(docSnap.id).update({ status: 'confirmed', confirmToken: null });
+    } catch (e) {
+      console.warn('Lead confirm Firestore update failed:', e.message);
+      return res.status(502).send('Could not confirm your email. Please try again.');
+    }
+    return res.status(200).send('Your email is confirmed. Thank you!');
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // Lead capture action — only active when kill switch is on.
@@ -182,13 +255,16 @@ functions.http('diagram', async (req, res) => {
       return res.status(400).json({ error: 'termsVersion required' });
     }
 
+    const confirmToken = crypto.randomBytes(24).toString('hex');
+
     const leadDoc = {
       email: String(email),
       interestedWorkflow: interestedWorkflow ? String(interestedWorkflow) : null,
       sourcePage: sourcePage ? String(sourcePage) : null,
       consentTermsVersion: String(termsVersion),
       ipHash,
-      status: 'pending'
+      status: 'pending',
+      confirmToken
     };
 
     try {
@@ -197,6 +273,8 @@ functions.http('diagram', async (req, res) => {
       console.warn('Lead Firestore write failed:', e.message);
       return res.status(502).json({ error: 'Could not save lead' });
     }
+
+    await sendConfirmEmail(String(email), confirmToken);
 
     return res.status(200).json({ received: true });
   }

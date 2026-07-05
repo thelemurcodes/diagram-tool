@@ -10,12 +10,29 @@ jest.mock('@google-cloud/functions-framework', () => ({
 }));
 
 let mockAdd: jest.Mock;
+let mockGet: jest.Mock;
+let mockUpdate: jest.Mock;
 
 jest.mock('@google-cloud/firestore', () => {
-  mockAdd = jest.fn().mockResolvedValue({});
+  mockAdd    = jest.fn().mockResolvedValue({});
+  mockGet    = jest.fn().mockResolvedValue({ empty: true, docs: [] });
+  mockUpdate = jest.fn().mockResolvedValue({});
+
+  const mockDoc = jest.fn().mockReturnValue({ update: mockUpdate });
+
+  const mockWhere = jest.fn().mockReturnValue({
+    limit: jest.fn().mockReturnValue({ get: mockGet }),
+  });
+
+  const mockCollection = jest.fn().mockReturnValue({
+    add: mockAdd,
+    where: mockWhere,
+    doc: mockDoc,
+  });
+
   return {
     Firestore: jest.fn().mockImplementation(() => ({
-      collection: jest.fn().mockReturnValue({ add: mockAdd }),
+      collection: mockCollection,
     })),
   };
 });
@@ -28,8 +45,17 @@ const { _hits, LIMITS } = require('../index') as {
   LIMITS: Record<string, number>;
 };
 
-function makeReq(body: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
-  return { method: 'POST', body, headers };
+function makeReq(
+  body: Record<string, unknown> = {},
+  headers: Record<string, string> = {},
+  method = 'POST',
+  query: Record<string, string> = {}
+) {
+  return { method, body, headers, query };
+}
+
+function makeGetReq(query: Record<string, string> = {}) {
+  return { method: 'GET', body: {}, headers: {}, query };
 }
 
 function makeRes() {
@@ -66,13 +92,20 @@ beforeEach(() => {
   mockFetch.mockReset();
   mockAdd.mockReset();
   mockAdd.mockResolvedValue({});
+  mockGet.mockReset();
+  mockGet.mockResolvedValue({ empty: true, docs: [] });
+  mockUpdate.mockReset();
+  mockUpdate.mockResolvedValue({});
   process.env.LEAD_CAPTURE_ENABLED = 'true';
   process.env.ANTHROPIC_API_KEY = 'test-key';
+  process.env.FUNCTION_URL = 'https://example.run.app/diagram';
   delete process.env.LOG_PROMPTS;
+  delete process.env.RESEND_API_KEY;
 });
 
 afterEach(() => {
   delete process.env.LEAD_CAPTURE_ENABLED;
+  delete process.env.FUNCTION_URL;
 });
 
 describe('lead capture — kill switch', () => {
@@ -201,7 +234,7 @@ describe('lead capture — termsVersion validation', () => {
 });
 
 describe('lead capture — successful Firestore write', () => {
-  it('writes to the leads collection with status pending', async () => {
+  it('writes to the leads collection with status pending and a confirmToken', async () => {
     await callHandler(makeReq(validLeadBody({
       email: 'admin@facility.com',
       termsVersion: 'v1.0',
@@ -219,6 +252,8 @@ describe('lead capture — successful Firestore write', () => {
     expect(typeof written.ipHash).toBe('string');
     expect(written.ipHash).toHaveLength(16);
     expect(written.createdAt).toBeInstanceOf(Date);
+    expect(typeof written.confirmToken).toBe('string');
+    expect(written.confirmToken.length).toBeGreaterThan(0);
   });
 
   it('does not include a Firestore document id in the response', async () => {
@@ -336,5 +371,172 @@ describe('lead capture — does not interfere with diagram generation', () => {
       headers
     ));
     expect(diagramResult.statusCode).toBe(200);
+  });
+});
+
+describe('lead capture — Resend confirmation email', () => {
+  it('sends a Resend call with the confirmToken embedded in the link after a successful write', async () => {
+    process.env.RESEND_API_KEY = 'resend-test-key';
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+      text: async () => '',
+    });
+
+    const result = await callHandler(makeReq(validLeadBody({ email: 'nurse@snf.org' })));
+
+    expect(result.statusCode).toBe(200);
+    expect((result.body as any).received).toBe(true);
+
+    const writtenToken = mockAdd.mock.calls[0][0].confirmToken as string;
+    expect(typeof writtenToken).toBe('string');
+    expect(writtenToken.length).toBeGreaterThan(0);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, fetchOpts] = mockFetch.mock.calls[0];
+    expect(url).toBe('https://api.resend.com/emails');
+    expect(fetchOpts.headers['Authorization']).toBe('Bearer resend-test-key');
+
+    const emailBody = JSON.parse(fetchOpts.body);
+    expect(emailBody.to).toBe('nurse@snf.org');
+    expect(emailBody.html).toContain(`action=lead_confirm&token=${writtenToken}`);
+  });
+
+  it('returns 200 to the submitter even when the Resend call throws', async () => {
+    process.env.RESEND_API_KEY = 'resend-test-key';
+    mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+
+    const result = await callHandler(makeReq(validLeadBody()));
+
+    expect(result.statusCode).toBe(200);
+    expect((result.body as any).received).toBe(true);
+    expect(mockAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 200 to the submitter when the Resend API responds with a non-ok status', async () => {
+    process.env.RESEND_API_KEY = 'resend-test-key';
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      text: async () => 'Unprocessable Entity',
+    });
+
+    const result = await callHandler(makeReq(validLeadBody()));
+
+    expect(result.statusCode).toBe(200);
+    expect((result.body as any).received).toBe(true);
+    expect(mockAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call Resend when RESEND_API_KEY is absent', async () => {
+    delete process.env.RESEND_API_KEY;
+
+    const result = await callHandler(makeReq(validLeadBody()));
+
+    expect(result.statusCode).toBe(200);
+    expect((result.body as any).received).toBe(true);
+    expect(mockAdd).toHaveBeenCalledTimes(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('lead confirm — GET path kill switch', () => {
+  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is unset', async () => {
+    delete process.env.LEAD_CAPTURE_ENABLED;
+    const withFlag = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'abc' }));
+    const withoutFlag = await callHandler(makeGetReq());
+    expect(withFlag.statusCode).toBe(withoutFlag.statusCode);
+    expect(withFlag.body).toEqual(withoutFlag.body);
+  });
+
+  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is false', async () => {
+    process.env.LEAD_CAPTURE_ENABLED = 'false';
+    const withAction = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'abc' }));
+    const plainGet = await callHandler(makeGetReq());
+    expect(withAction.statusCode).toBe(405);
+    expect(withAction.statusCode).toBe(plainGet.statusCode);
+  });
+
+  it('returns 405 for a plain GET (no query params) when LEAD_CAPTURE_ENABLED is true', async () => {
+    const result = await callHandler(makeGetReq());
+    expect(result.statusCode).toBe(405);
+  });
+});
+
+describe('lead confirm — pending to confirmed', () => {
+  it('flips status to confirmed, clears confirmToken, and responds 200 for a pending lead', async () => {
+    const token = 'valid-pending-token';
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'lead-doc-1', data: () => ({ status: 'pending', confirmToken: token }) }],
+    });
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const updateArg = mockUpdate.mock.calls[0][0];
+    expect(updateArg.status).toBe('confirmed');
+    expect(updateArg.confirmToken).toBeNull();
+  });
+
+  it('responds 200 and does not write again when the lead is already confirmed (idempotent)', async () => {
+    const token = 'already-confirmed-token';
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'lead-doc-2', data: () => ({ status: 'confirmed', confirmToken: null }) }],
+    });
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('lead confirm — invalid / missing token', () => {
+  it('responds 400 with a generic message when no document matches the token', async () => {
+    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'nonexistent-token' }));
+
+    expect(result.statusCode).toBe(400);
+    expect(typeof result.body).toBe('string');
+    expect((result.body as string).length).toBeGreaterThan(0);
+  });
+
+  it('responds with the same 400 message whether the token never existed or was already cleared', async () => {
+    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
+    const neverExisted = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'ghost-token' }));
+
+    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
+    const alreadyCleared = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'cleared-token' }));
+
+    expect(neverExisted.statusCode).toBe(400);
+    expect(alreadyCleared.statusCode).toBe(400);
+    expect(neverExisted.body).toBe(alreadyCleared.body);
+  });
+});
+
+describe('lead confirm — Firestore errors', () => {
+  it('responds 502 when the Firestore query throws', async () => {
+    mockGet.mockRejectedValueOnce(new Error('Firestore down'));
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'some-token' }));
+
+    expect(result.statusCode).toBe(502);
+  });
+
+  it('responds 502 when the Firestore update throws', async () => {
+    const token = 'update-fail-token';
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'lead-doc-3', data: () => ({ status: 'pending', confirmToken: token }) }],
+    });
+    mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
+
+    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
+
+    expect(result.statusCode).toBe(502);
   });
 });
