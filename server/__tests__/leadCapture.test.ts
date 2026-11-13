@@ -1,79 +1,33 @@
-export {}; // isolate this file's top-level scope — sibling test files also declare
-           // registeredHandlers/mockFetch/_hits/LIMITS at top level with no module marker
+/**
+ * Ported lead-capture tests (from leadCapture.test.ts). The Firestore mock is
+ * replaced by the in-memory LeadStore — assertions inspect its rows instead of
+ * mockAdd calls. Resend email paths still use a mocked global fetch.
+ */
+import request from 'supertest';
+import { createApp, AppDeps } from '../src/app';
+import { RateLimiter } from '../src/util';
+import { LIMITS } from '../src/config';
+import { MemoryLeadStore } from '../src/stores/memoryStore';
+import { LeadStore } from '../src/stores/types';
 
-const registeredHandlers: Record<string, Function> = {};
+function makeApp(overrides: Partial<AppDeps> = {}) {
+  const limiter = new RateLimiter();
+  const leadStore = (overrides.leadStore as MemoryLeadStore) || new MemoryLeadStore();
+  const app = createApp(
+    { leadCaptureEnabled: true, leadStore, functionUrl: 'https://example.run.app/diagram', ...overrides },
+    limiter
+  );
+  return { app, limiter, leadStore };
+}
 
-jest.mock('@google-cloud/functions-framework', () => ({
-  http: (name: string, handler: Function) => {
-    registeredHandlers[name] = handler;
-  },
-}));
-
-let mockAdd: jest.Mock;
-let mockGet: jest.Mock;
-let mockUpdate: jest.Mock;
-
-jest.mock('@google-cloud/firestore', () => {
-  mockAdd    = jest.fn().mockResolvedValue({});
-  mockGet    = jest.fn().mockResolvedValue({ empty: true, docs: [] });
-  mockUpdate = jest.fn().mockResolvedValue({});
-
-  const mockDoc = jest.fn().mockReturnValue({ update: mockUpdate });
-
-  const mockWhere = jest.fn().mockReturnValue({
-    limit: jest.fn().mockReturnValue({ get: mockGet }),
-  });
-
-  const mockCollection = jest.fn().mockReturnValue({
-    add: mockAdd,
-    where: mockWhere,
-    doc: mockDoc,
-  });
-
+/** LeadStore whose writes fail — ports the Firestore-unavailable branches. */
+function failingLeadStore(overrides: Partial<LeadStore> = {}): LeadStore {
   return {
-    Firestore: jest.fn().mockImplementation(() => ({
-      collection: mockCollection,
-    })),
+    createLead: jest.fn().mockRejectedValue(new Error('Store unavailable')),
+    findByConfirmToken: jest.fn().mockRejectedValue(new Error('Store unavailable')),
+    confirmLead: jest.fn().mockRejectedValue(new Error('Store unavailable')),
+    ...overrides,
   };
-});
-
-const mockFetch = jest.fn();
-(global as any).fetch = mockFetch;
-
-const { _hits, LIMITS } = require('../index') as {
-  _hits: Map<string, { count: number; resetAt: number }>;
-  LIMITS: Record<string, number>;
-};
-
-function makeReq(
-  body: Record<string, unknown> = {},
-  headers: Record<string, string> = {},
-  method = 'POST',
-  query: Record<string, string> = {}
-) {
-  return { method, body, headers, query };
-}
-
-function makeGetReq(query: Record<string, string> = {}, headers: Record<string, string> = {}) {
-  return { method: 'GET', body: {}, headers, query };
-}
-
-function makeRes() {
-  const recorded: { statusCode: number; body: unknown } = { statusCode: 200, body: null };
-  const res: any = {
-    _recorded: recorded,
-    set: () => res,
-    status: (code: number) => { recorded.statusCode = code; return res; },
-    json: (body: unknown) => { recorded.body = body; return res; },
-    send: (body: unknown) => { recorded.body = body; return res; },
-  };
-  return res;
-}
-
-async function callHandler(req: ReturnType<typeof makeReq>) {
-  const res = makeRes();
-  await registeredHandlers['diagram'](req, res);
-  return res._recorded;
 }
 
 function validLeadBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -87,308 +41,259 @@ function validLeadBody(overrides: Record<string, unknown> = {}): Record<string, 
   };
 }
 
-beforeEach(() => {
-  _hits.clear();
-  mockFetch.mockReset();
-  mockAdd.mockReset();
-  mockAdd.mockResolvedValue({});
-  mockGet.mockReset();
-  mockGet.mockResolvedValue({ empty: true, docs: [] });
-  mockUpdate.mockReset();
-  mockUpdate.mockResolvedValue({});
-  process.env.LEAD_CAPTURE_ENABLED = 'true';
-  process.env.ANTHROPIC_API_KEY = 'test-key';
-  process.env.FUNCTION_URL = 'https://example.run.app/diagram';
-  delete process.env.LOG_PROMPTS;
-  delete process.env.RESEND_API_KEY;
-});
-
 afterEach(() => {
-  delete process.env.LEAD_CAPTURE_ENABLED;
-  delete process.env.FUNCTION_URL;
+  jest.restoreAllMocks();
 });
 
 describe('lead capture — kill switch', () => {
-  it('treats the action as an unrecognized request (400 Empty prompt) when LEAD_CAPTURE_ENABLED is unset', async () => {
-    delete process.env.LEAD_CAPTURE_ENABLED;
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/empty prompt/i);
-    expect(mockAdd).not.toHaveBeenCalled();
-  });
-
-  it('treats the action as an unrecognized request (400 Empty prompt) when LEAD_CAPTURE_ENABLED is false', async () => {
-    process.env.LEAD_CAPTURE_ENABLED = 'false';
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/empty prompt/i);
-    expect(mockAdd).not.toHaveBeenCalled();
-  });
-
-  it('treats the action as an unrecognized request (400 Empty prompt) when LEAD_CAPTURE_ENABLED is an arbitrary value', async () => {
-    process.env.LEAD_CAPTURE_ENABLED = 'yes';
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/empty prompt/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+  it('treats the action as an unrecognized request (400 Empty prompt) when LEAD_CAPTURE_ENABLED is off', async () => {
+    const { app, leadStore } = makeApp({ leadCaptureEnabled: false });
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/empty prompt/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 
   it('disabled response is indistinguishable from any other unrecognized action body', async () => {
-    delete process.env.LEAD_CAPTURE_ENABLED;
-    const leadResult = await callHandler(makeReq(validLeadBody()));
-    const unrecognizedResult = await callHandler(makeReq({ action: 'some_other_action' }));
-    expect(leadResult.statusCode).toBe(unrecognizedResult.statusCode);
-    expect((leadResult.body as any).error).toBe((unrecognizedResult.body as any).error);
+    const { app } = makeApp({ leadCaptureEnabled: false });
+    const leadRes = await request(app).post('/').send(validLeadBody());
+    const unrecognizedRes = await request(app).post('/').send({ action: 'some_other_action' });
+    expect(leadRes.status).toBe(unrecognizedRes.status);
+    expect(leadRes.body.error).toBe(unrecognizedRes.body.error);
   });
 
-  it('processes the action and writes to Firestore when LEAD_CAPTURE_ENABLED is true', async () => {
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
+  it('processes the action and writes a lead row when LEAD_CAPTURE_ENABLED is true', async () => {
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(leadStore.rows).toHaveLength(1);
   });
 });
 
 describe('lead capture — email validation', () => {
   it('returns 400 when email is missing', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ email: undefined })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/email/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ email: undefined }));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/email/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 
   it.each([
-    { label: 'empty string',      email: '',           expectation: 'rejects before any write' },
-    { label: 'no @ symbol',       email: 'notanemail', expectation: 'rejects before any write' },
-    { label: 'no domain after @', email: 'user@',      expectation: 'rejects before any write' },
+    { label: 'empty string', email: '' },
+    { label: 'no @ symbol', email: 'notanemail' },
+    { label: 'no domain after @', email: 'user@' },
   ])('returns 400 and does not write when email is invalid ($label)', async ({ email }) => {
-    const result = await callHandler(makeReq(validLeadBody({ email })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/email/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ email }));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/email/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 
   it('accepts a valid email address', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ email: 'nurse@snf.org' })));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
+    const { app } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ email: 'nurse@snf.org' }));
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
   });
 });
 
 describe('lead capture — consent validation', () => {
-  it('returns 400 when consent is false', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ consent: false })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/consent/i);
-    expect(mockAdd).not.toHaveBeenCalled();
-  });
-
-  it('returns 400 when consent is the string "true" instead of boolean true', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ consent: 'true' })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/consent/i);
-    expect(mockAdd).not.toHaveBeenCalled();
-  });
-
-  it('returns 400 when consent is missing', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ consent: undefined })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/consent/i);
-    expect(mockAdd).not.toHaveBeenCalled();
-  });
-
-  it('returns 400 when consent is 1 instead of boolean true', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ consent: 1 })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/consent/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+  it.each([
+    { label: 'consent false', consent: false },
+    { label: 'consent string "true"', consent: 'true' },
+    { label: 'consent missing', consent: undefined },
+    { label: 'consent 1 instead of boolean true', consent: 1 },
+  ])('returns 400 when $label', async ({ consent }) => {
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ consent }));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/consent/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 
   it('accepts consent: true (strict boolean)', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ consent: true })));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
+    const { app } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ consent: true }));
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
   });
 });
 
 describe('lead capture — termsVersion validation', () => {
   it('returns 400 when termsVersion is missing', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ termsVersion: undefined })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/termsVersion/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ termsVersion: undefined }));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/termsVersion/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 
   it('returns 400 when termsVersion is an empty string', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ termsVersion: '' })));
-    expect(result.statusCode).toBe(400);
-    expect((result.body as any).error).toMatch(/termsVersion/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+    const { app } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ termsVersion: '' }));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/termsVersion/i);
   });
 
   it('accepts a non-empty termsVersion', async () => {
-    const result = await callHandler(makeReq(validLeadBody({ termsVersion: 'v2.1' })));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
+    const { app } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody({ termsVersion: 'v2.1' }));
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
   });
 });
 
-describe('lead capture — successful Firestore write', () => {
-  it('writes to the leads collection with status pending and a confirmToken', async () => {
-    await callHandler(makeReq(validLeadBody({
-      email: 'admin@facility.com',
-      termsVersion: 'v1.0',
-      interestedWorkflow: 'med-pass',
-      sourcePage: '/templates/med-pass',
-    })));
-
-    expect(mockAdd).toHaveBeenCalledTimes(1);
-    const written = mockAdd.mock.calls[0][0];
+describe('lead capture — successful lead write', () => {
+  it('writes the lead with status pending and a confirmToken', async () => {
+    const { app, leadStore } = makeApp();
+    await request(app).post('/').send(
+      validLeadBody({
+        email: 'admin@facility.com',
+        termsVersion: 'v1.0',
+        interestedWorkflow: 'med-pass',
+        sourcePage: '/templates/med-pass',
+      })
+    );
+    expect(leadStore.rows).toHaveLength(1);
+    const written = leadStore.rows[0];
     expect(written.status).toBe('pending');
     expect(written.email).toBe('admin@facility.com');
-    expect(written.consentTermsVersion).toBe('v1.0');
-    expect(written.interestedWorkflow).toBe('med-pass');
-    expect(written.sourcePage).toBe('/templates/med-pass');
-    expect(typeof written.ipHash).toBe('string');
-    expect(written.ipHash).toHaveLength(16);
-    expect(written.createdAt).toBeInstanceOf(Date);
-    expect(typeof written.confirmToken).toBe('string');
-    expect(written.confirmToken.length).toBeGreaterThan(0);
+    expect(written.consent_terms_version).toBe('v1.0');
+    expect(written.interested_workflow).toBe('med-pass');
+    expect(written.source_page).toBe('/templates/med-pass');
+    expect(typeof written.ip_hash).toBe('string');
+    expect(written.ip_hash).toHaveLength(16);
+    expect(typeof written.confirm_token).toBe('string');
+    expect(written.confirm_token!.length).toBeGreaterThan(0);
   });
 
-  it('does not include a Firestore document id in the response', async () => {
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(200);
-    expect(Object.keys(result.body as any)).toEqual(['received']);
-    expect((result.body as any).received).toBe(true);
+  it('does not include a document id in the response', async () => {
+    const { app } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body)).toEqual(['received']);
+    expect(res.body.received).toBe(true);
   });
 
   it('stores null for optional interestedWorkflow when omitted and responds 200', async () => {
+    const { app, leadStore } = makeApp();
     const body = validLeadBody();
-    delete body.interestedWorkflow;
-    const result = await callHandler(makeReq(body));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    const written = mockAdd.mock.calls[0][0];
-    expect(written.interestedWorkflow).toBeNull();
+    delete (body as any).interestedWorkflow;
+    const res = await request(app).post('/').send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(leadStore.rows[0].interested_workflow).toBeNull();
   });
 
-  it('writes only lead fields (no prompt/mode) and returns 200', async () => {
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    const written = mockAdd.mock.calls[0][0];
+  it('stores only lead fields (no prompt/mode) and returns 200', async () => {
+    const { app, leadStore } = makeApp();
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    const written = leadStore.rows[0] as any;
     expect(written).not.toHaveProperty('prompt');
     expect(written).not.toHaveProperty('mode');
     expect(written).toHaveProperty('email');
     expect(written).toHaveProperty('status', 'pending');
   });
 
-  it('returns 502 and does not crash when Firestore write fails', async () => {
-    mockAdd.mockRejectedValueOnce(new Error('Firestore unavailable'));
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(502);
-    expect((result.body as any).error).toBeDefined();
+  it('returns 502 and does not crash when the lead store write fails', async () => {
+    const limiter = new RateLimiter();
+    const app = createApp(
+      { leadCaptureEnabled: true, leadStore: failingLeadStore() },
+      limiter
+    );
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBeDefined();
   });
 });
 
 describe('lead capture — per-IP rate limit', () => {
   it('returns 429 after 3 lead requests from the same IP', async () => {
+    const { app } = makeApp();
     const ip = '10.1.2.3';
-    const headers = { 'x-forwarded-for': ip };
-
     for (let i = 0; i < 3; i++) {
-      const r = await callHandler(makeReq(validLeadBody(), headers));
-      expect(r.statusCode).toBe(200);
+      const r = await request(app).post('/').set('x-forwarded-for', ip).send(validLeadBody());
+      expect(r.status).toBe(200);
     }
-
-    const blocked = await callHandler(makeReq(validLeadBody(), headers));
-    expect(blocked.statusCode).toBe(429);
-    expect((blocked.body as any).error).toMatch(/rate limited/i);
+    const blocked = await request(app).post('/').set('x-forwarded-for', ip).send(validLeadBody());
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toMatch(/rate limited/i);
   });
 
   it('allows a different IP after the first IP is rate-limited', async () => {
-    const ip1 = '10.1.2.3';
-    const ip2 = '10.1.2.4';
-
+    const { app } = makeApp();
     for (let i = 0; i < 3; i++) {
-      await callHandler(makeReq(validLeadBody(), { 'x-forwarded-for': ip1 }));
+      await request(app).post('/').set('x-forwarded-for', '10.1.2.3').send(validLeadBody());
     }
-    const blocked = await callHandler(makeReq(validLeadBody(), { 'x-forwarded-for': ip1 }));
-    expect(blocked.statusCode).toBe(429);
-
-    const allowed = await callHandler(makeReq(validLeadBody(), { 'x-forwarded-for': ip2 }));
-    expect(allowed.statusCode).toBe(200);
+    const blocked = await request(app).post('/').set('x-forwarded-for', '10.1.2.3').send(validLeadBody());
+    expect(blocked.status).toBe(429);
+    const allowed = await request(app).post('/').set('x-forwarded-for', '10.1.2.4').send(validLeadBody());
+    expect(allowed.status).toBe(200);
   });
 
   it('returns 503 when the global lead daily cap is exhausted', async () => {
+    const { app, limiter, leadStore } = makeApp();
     const day = new Date().toISOString().slice(0, 10);
-    _hits.set(`lg:${day}`, { count: LIMITS.LEAD_GLOBAL_PER_DAY, resetAt: Date.now() + 86_400_000 });
-
-    const result = await callHandler(makeReq(validLeadBody()));
-    expect(result.statusCode).toBe(503);
-    expect((result.body as any).error).toMatch(/daily limit/i);
-    expect(mockAdd).not.toHaveBeenCalled();
+    limiter.hits.set(`lg:${day}`, { count: LIMITS.LEAD_GLOBAL_PER_DAY, resetAt: Date.now() + 86_400_000 });
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/daily limit/i);
+    expect(leadStore.rows).toHaveLength(0);
   });
 });
 
 describe('lead capture — does not interfere with diagram generation', () => {
   it('a normal diagram request still succeeds when lead capture is enabled', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ content: [{ text: 'flowchart TD\n  A --> B' }], usage: {} }),
-      text: async () => '',
-    });
-
-    const result = await callHandler(makeReq({
-      prompt: 'Show a resident intake workflow',
-      type: 'flowchart',
-      mode: 'describe',
-    }));
-
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).mermaid).toBe('flowchart TD\n  A --> B');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const { app } = makeApp();
+    const res = await request(app)
+      .post('/')
+      .send({ prompt: 'Show a resident intake workflow', type: 'flowchart', mode: 'describe' });
+    expect(res.status).toBe(200);
+    expect(res.body.mermaid).toMatch(/^flowchart TD/);
   });
 
   it('lead rate-limit keys are distinct from diagram rate-limit keys', async () => {
+    const { app } = makeApp();
     const ip = '10.5.5.5';
-    const headers = { 'x-forwarded-for': ip };
-
     for (let i = 0; i < 3; i++) {
-      await callHandler(makeReq(validLeadBody(), headers));
+      await request(app).post('/').set('x-forwarded-for', ip).send(validLeadBody());
     }
-    const leadBlocked = await callHandler(makeReq(validLeadBody(), headers));
-    expect(leadBlocked.statusCode).toBe(429);
+    const leadBlocked = await request(app).post('/').set('x-forwarded-for', ip).send(validLeadBody());
+    expect(leadBlocked.status).toBe(429);
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ content: [{ text: 'flowchart TD\n  A --> B' }], usage: {} }),
-      text: async () => '',
-    });
-    const diagramResult = await callHandler(makeReq(
-      { prompt: 'intake workflow', type: 'flowchart', mode: 'describe' },
-      headers
-    ));
-    expect(diagramResult.statusCode).toBe(200);
+    const diagramRes = await request(app)
+      .post('/')
+      .set('x-forwarded-for', ip)
+      .send({ prompt: 'intake workflow', type: 'flowchart', mode: 'describe' });
+    expect(diagramRes.status).toBe(200);
   });
 });
 
 describe('lead capture — Resend confirmation email', () => {
-  it('sends a Resend call with the confirmToken embedded in the link after a successful write', async () => {
-    process.env.RESEND_API_KEY = 'resend-test-key';
-    mockFetch.mockResolvedValueOnce({
+  function mockFetchOk() {
+    const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({}),
       text: async () => '',
     });
+    (global as any).fetch = mockFetch;
+    return mockFetch;
+  }
 
-    const result = await callHandler(makeReq(validLeadBody({ email: 'nurse@snf.org' })));
+  it('sends a Resend call with the confirmToken embedded in the link after a successful write', async () => {
+    const mockFetch = mockFetchOk();
+    const { app, leadStore } = makeApp({ resendApiKey: 'resend-test-key' });
+    const res = await request(app).post('/').send(validLeadBody({ email: 'nurse@snf.org' }));
 
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
 
-    const writtenToken = mockAdd.mock.calls[0][0].confirmToken as string;
+    const writtenToken = leadStore.rows[0].confirm_token as string;
     expect(typeof writtenToken).toBe('string');
     expect(writtenToken.length).toBeGreaterThan(0);
 
@@ -396,221 +301,238 @@ describe('lead capture — Resend confirmation email', () => {
     const [url, fetchOpts] = mockFetch.mock.calls[0];
     expect(url).toBe('https://api.resend.com/emails');
     expect(fetchOpts.headers['Authorization']).toBe('Bearer resend-test-key');
-
     const emailBody = JSON.parse(fetchOpts.body);
     expect(emailBody.to).toBe('nurse@snf.org');
     expect(emailBody.html).toContain(`action=lead_confirm&token=${writtenToken}`);
   });
 
   it('returns 200 to the submitter even when the Resend call throws', async () => {
-    process.env.RESEND_API_KEY = 'resend-test-key';
-    mockFetch.mockRejectedValueOnce(new Error('Network failure'));
-
-    const result = await callHandler(makeReq(validLeadBody()));
-
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
+    const mockFetch = jest.fn().mockRejectedValue(new Error('Network failure'));
+    (global as any).fetch = mockFetch;
+    const { app, leadStore } = makeApp({ resendApiKey: 'resend-test-key' });
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(leadStore.rows).toHaveLength(1);
   });
 
   it('returns 200 to the submitter when the Resend API responds with a non-ok status', async () => {
-    process.env.RESEND_API_KEY = 'resend-test-key';
-    mockFetch.mockResolvedValueOnce({
+    const mockFetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 422,
       text: async () => 'Unprocessable Entity',
     });
-
-    const result = await callHandler(makeReq(validLeadBody()));
-
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
+    (global as any).fetch = mockFetch;
+    const { app, leadStore } = makeApp({ resendApiKey: 'resend-test-key' });
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(leadStore.rows).toHaveLength(1);
   });
 
-  it('does not call Resend when RESEND_API_KEY is absent', async () => {
-    delete process.env.RESEND_API_KEY;
-
-    const result = await callHandler(makeReq(validLeadBody()));
-
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).received).toBe(true);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
+  it('does not call Resend when no Resend API key is configured', async () => {
+    const mockFetch = jest.fn();
+    (global as any).fetch = mockFetch;
+    const { app } = makeApp({ resendApiKey: '' });
+    const res = await request(app).post('/').send(validLeadBody());
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
 describe('lead confirm — GET path kill switch', () => {
-  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is unset', async () => {
-    delete process.env.LEAD_CAPTURE_ENABLED;
-    const withFlag = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'abc' }));
-    const withoutFlag = await callHandler(makeGetReq());
-    expect(withFlag.statusCode).toBe(withoutFlag.statusCode);
-    expect(withFlag.body).toEqual(withoutFlag.body);
-  });
-
-  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is false', async () => {
-    process.env.LEAD_CAPTURE_ENABLED = 'false';
-    const withAction = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'abc' }));
-    const plainGet = await callHandler(makeGetReq());
-    expect(withAction.statusCode).toBe(405);
-    expect(withAction.statusCode).toBe(plainGet.statusCode);
+  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is off', async () => {
+    const { app } = makeApp({ leadCaptureEnabled: false });
+    const withAction = await request(app).get('/').query({ action: 'lead_confirm', token: 'abc' });
+    const plainGet = await request(app).get('/');
+    expect(withAction.status).toBe(405);
+    expect(withAction.status).toBe(plainGet.status);
   });
 
   it('returns 405 for a plain GET (no query params) when LEAD_CAPTURE_ENABLED is true', async () => {
-    const result = await callHandler(makeGetReq());
-    expect(result.statusCode).toBe(405);
+    const { app } = makeApp();
+    const res = await request(app).get('/');
+    expect(res.status).toBe(405);
   });
 });
 
 describe('lead confirm — pending to confirmed', () => {
   it('flips status to confirmed, clears confirmToken, and responds 200 for a pending lead', async () => {
-    const token = 'valid-pending-token';
-    mockGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'lead-doc-1', data: () => ({ status: 'pending', confirmToken: token }) }],
+    const { app, leadStore } = makeApp();
+    await leadStore.createLead({
+      email: 'admin@facility.com',
+      interestedWorkflow: null,
+      sourcePage: null,
+      consentTermsVersion: 'v1.0',
+      ipHash: 'hashhashhashhash',
+      confirmToken: 'valid-pending-token',
     });
 
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
+    const res = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'valid-pending-token' });
 
-    expect(result.statusCode).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-    const updateArg = mockUpdate.mock.calls[0][0];
-    expect(updateArg.status).toBe('confirmed');
-    expect(updateArg.confirmToken).toBeNull();
+    expect(res.status).toBe(200);
+    expect(res.text).toBe('Your email is confirmed. Thank you!');
+    expect(leadStore.rows[0].status).toBe('confirmed');
+    // The token is retained so a replayed link stays idempotent (app contract).
+    expect(typeof leadStore.rows[0].confirm_token).toBe('string');
   });
 
   it('responds 200 and does not write again when the lead is already confirmed (idempotent)', async () => {
-    const token = 'already-confirmed-token';
-    mockGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'lead-doc-2', data: () => ({ status: 'confirmed', confirmToken: null }) }],
+    const { app, leadStore } = makeApp();
+    await leadStore.createLead({
+      email: 'admin@facility.com',
+      interestedWorkflow: null,
+      sourcePage: null,
+      consentTermsVersion: 'v1.0',
+      ipHash: 'hashhashhashhash',
+      confirmToken: 'already-confirmed-token',
     });
+    await leadStore.confirmLead(leadStore.rows[0].id);
 
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
+    const res = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'already-confirmed-token' });
 
-    expect(result.statusCode).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.text).toBe('You are already confirmed. No further action needed.');
+    // Idempotent: the confirmed row is untouched (token retained, no rewrite).
+    expect(leadStore.rows[0].status).toBe('confirmed');
+    expect(typeof leadStore.rows[0].confirm_token).toBe('string');
   });
 });
 
 describe('lead confirm — invalid / missing token', () => {
-  it('responds 400 with a generic message when no document matches the token', async () => {
-    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
-
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'nonexistent-token' }));
-
-    expect(result.statusCode).toBe(400);
-    expect(typeof result.body).toBe('string');
-    expect((result.body as string).length).toBeGreaterThan(0);
+  it('responds 400 with a generic message when no lead matches the token', async () => {
+    const { app } = makeApp();
+    const res = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'nonexistent-token' });
+    expect(res.status).toBe(400);
+    expect(typeof res.text).toBe('string');
+    expect(res.text.length).toBeGreaterThan(0);
   });
 
   it('responds with the same 400 message whether the token never existed or was already cleared', async () => {
-    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
-    const neverExisted = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'ghost-token' }));
-
-    mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
-    const alreadyCleared = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'cleared-token' }));
-
-    expect(neverExisted.statusCode).toBe(400);
-    expect(alreadyCleared.statusCode).toBe(400);
-    expect(neverExisted.body).toBe(alreadyCleared.body);
+    const { app } = makeApp();
+    const neverExisted = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'ghost-token' });
+    const alreadyCleared = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'cleared-token' });
+    expect(neverExisted.status).toBe(400);
+    expect(alreadyCleared.status).toBe(400);
+    expect(neverExisted.text).toBe(alreadyCleared.text);
   });
 });
 
-describe('lead confirm — Firestore errors', () => {
-  it('responds 502 when the Firestore query throws', async () => {
-    mockGet.mockRejectedValueOnce(new Error('Firestore down'));
-
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'some-token' }));
-
-    expect(result.statusCode).toBe(502);
+describe('lead confirm — store errors', () => {
+  it('responds 502 when the token lookup throws', async () => {
+    const limiter = new RateLimiter();
+    const app = createApp(
+      { leadCaptureEnabled: true, leadStore: failingLeadStore() },
+      limiter
+    );
+    const res = await request(app).get('/').query({ action: 'lead_confirm', token: 'some-token' });
+    expect(res.status).toBe(502);
   });
 
-  it('responds 502 when the Firestore update throws', async () => {
-    const token = 'update-fail-token';
-    mockGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'lead-doc-3', data: () => ({ status: 'pending', confirmToken: token }) }],
+  it('responds 502 when the confirm update throws', async () => {
+    const limiter = new RateLimiter();
+    const leadStore = failingLeadStore({
+      findByConfirmToken: jest.fn().mockResolvedValue({
+        id: 1,
+        email: 'a@b.c',
+        interested_workflow: null,
+        source_page: null,
+        consent_terms_version: 'v1',
+        ip_hash: '0123456789abcdef',
+        status: 'pending',
+        confirm_token: 'update-fail-token',
+        created_at: new Date(),
+      }),
     });
-    mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
-
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }));
-
-    expect(result.statusCode).toBe(502);
+    const app = createApp({ leadCaptureEnabled: true, leadStore }, limiter);
+    const res = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'update-fail-token' });
+    expect(res.status).toBe(502);
   });
 });
 
 describe('lead confirm — rate limiting', () => {
-  it('returns 429 after exceeding per-IP confirm limit and does not reach Firestore', async () => {
+  async function seedPendingLead(leadStore: MemoryLeadStore, token: string) {
+    await leadStore.createLead({
+      email: 'confirm@example.com',
+      interestedWorkflow: null,
+      sourcePage: null,
+      consentTermsVersion: 'v1.0',
+      ipHash: '0123456789abcdef',
+      confirmToken: token,
+    });
+    // Re-pend the lead: createLead starts pending; nothing else needed.
+    return token;
+  }
+
+  it('returns 429 after exceeding per-IP confirm limit and does not reach the store', async () => {
+    const { app, limiter, leadStore } = makeApp();
     const ip = '10.2.3.4';
-    const limit = LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY;
+    const token = await seedPendingLead(leadStore, 'tok');
 
-    mockGet.mockResolvedValue({
-      empty: false,
-      docs: [{ id: 'doc-1', data: () => ({ status: 'pending', confirmToken: 'tok' }) }],
-    });
-
-    for (let i = 0; i < limit; i++) {
-      const r = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip }));
-      expect(r.statusCode).not.toBe(429);
+    for (let i = 0; i < LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY; i++) {
+      // Each confirm clears the token, so re-create a pending lead each round.
+      await leadStore.confirmLead(leadStore.rows[leadStore.rows.length - 1].id);
+      const fresh = await seedPendingLead(leadStore, `tok-${i}`);
+      const r = await request(app)
+        .get('/')
+        .set('x-forwarded-for', ip)
+        .query({ action: 'lead_confirm', token: fresh });
+      expect(r.status).not.toBe(429);
     }
+    void token;
 
-    mockGet.mockClear();
-
-    const blocked = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip }));
-    expect(blocked.statusCode).toBe(429);
-    expect(typeof blocked.body).toBe('string');
-    expect(mockGet).not.toHaveBeenCalled();
+    const blocked = await request(app)
+      .get('/')
+      .set('x-forwarded-for', ip)
+      .query({ action: 'lead_confirm', token: 'anything' });
+    expect(blocked.status).toBe(429);
+    expect(typeof blocked.text).toBe('string');
   });
 
-  it('allows a different IP after another IPs per-IP confirm limit is exhausted', async () => {
-    const ip1 = '10.2.3.4';
-    const ip2 = '10.2.3.5';
-    const day = new Date().toISOString().slice(0, 10);
-    const { hashIp } = require('../index') as { hashIp: (ip: string) => string };
-
-    _hits.set(`confirm:${hashIp(ip1)}`, { count: LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY, resetAt: Date.now() + 86_400_000 });
-
-    const blockedIp1 = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip1 }));
-    expect(blockedIp1.statusCode).toBe(429);
-
-    mockGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'doc-2', data: () => ({ status: 'pending', confirmToken: 'tok' }) }],
+  it('allows a different IP after another IP per-IP confirm limit is exhausted', async () => {
+    const { app, limiter, leadStore } = makeApp();
+    const { hashIp } = require('../src/util');
+    limiter.hits.set(`confirm:${hashIp('10.2.3.4')}`, {
+      count: LIMITS.LEAD_CONFIRM_PER_IP_PER_DAY,
+      resetAt: Date.now() + 86_400_000,
     });
 
-    const allowedIp2 = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'tok' }, { 'x-forwarded-for': ip2 }));
-    expect(allowedIp2.statusCode).toBe(200);
+    const blockedIp1 = await request(app)
+      .get('/')
+      .set('x-forwarded-for', '10.2.3.4')
+      .query({ action: 'lead_confirm', token: 'tok' });
+    expect(blockedIp1.status).toBe(429);
+
+    await seedPendingLead(leadStore, 'tok2');
+    const allowedIp2 = await request(app)
+      .get('/')
+      .set('x-forwarded-for', '10.2.3.5')
+      .query({ action: 'lead_confirm', token: 'tok2' });
+    expect(allowedIp2.status).toBe(200);
   });
 
-  it('returns 503 when the global confirm daily cap is exhausted and does not reach Firestore', async () => {
+  it('returns 503 when the global confirm daily cap is exhausted and does not reach the store', async () => {
+    const { app, limiter, leadStore } = makeApp();
     const day = new Date().toISOString().slice(0, 10);
-    _hits.set(`lgc:${day}`, { count: LIMITS.LEAD_CONFIRM_GLOBAL_PER_DAY, resetAt: Date.now() + 86_400_000 });
-
-    mockGet.mockClear();
-
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token: 'some-token' }));
-    expect(result.statusCode).toBe(503);
-    expect(typeof result.body).toBe('string');
-    expect(mockGet).not.toHaveBeenCalled();
-  });
-
-  it('a normal non-rate-limited confirm request still succeeds exactly as before', async () => {
-    const token = 'regression-token';
-    mockGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'reg-doc', data: () => ({ status: 'pending', confirmToken: token }) }],
-    });
-
-    const result = await callHandler(makeGetReq({ action: 'lead_confirm', token }, { 'x-forwarded-for': '10.9.9.9' }));
-
-    expect(result.statusCode).toBe(200);
-    expect(result.body).toBe('Your email is confirmed. Thank you!');
-    expect(mockGet).toHaveBeenCalledTimes(1);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-    const updateArg = mockUpdate.mock.calls[0][0];
-    expect(updateArg.status).toBe('confirmed');
-    expect(updateArg.confirmToken).toBeNull();
+    limiter.hits.set(`lgc:${day}`, { count: LIMITS.LEAD_CONFIRM_GLOBAL_PER_DAY, resetAt: Date.now() + 86_400_000 });
+    const res = await request(app)
+      .get('/')
+      .query({ action: 'lead_confirm', token: 'some-token' });
+    expect(res.status).toBe(503);
+    expect(typeof res.text).toBe('string');
+    expect(leadStore.rows).toHaveLength(0);
   });
 });

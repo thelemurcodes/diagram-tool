@@ -1,0 +1,5 @@
+{
+  "text": "flowchart TD\n  A[Call received] --> B{New inquiry?}\n  B -- Yes --> C[Schedule assessment]\n  B -- No --> D[Update care plan]\n  C --> E[Complete intake]\n  D --> E\n  E --> F[Assign care team]",
+  "usageIn": 120,
+  "usageOut": 95
+}
