@@ -13,6 +13,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspace server",
     "start": "npm run start --workspace server",
-    "serve": "npm run serve --workspace server"
+    "serve": "npm run serve --workspace server",
+    "start:fake": "node server/dist/devServer.js",
+    "e2e": "node e2e/local.js"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
   }
 }
