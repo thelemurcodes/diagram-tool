@@ -342,18 +342,20 @@ describe('lead capture — Resend confirmation email', () => {
 });
 
 describe('lead confirm — GET path kill switch', () => {
-  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is off', async () => {
+  it('returns 405 for a GET with lead_confirm action when LEAD_CAPTURE_ENABLED is off (plain GET still probes ok)', async () => {
     const { app } = makeApp({ leadCaptureEnabled: false });
     const withAction = await request(app).get('/').query({ action: 'lead_confirm', token: 'abc' });
     const plainGet = await request(app).get('/');
     expect(withAction.status).toBe(405);
-    expect(withAction.status).toBe(plainGet.status);
+    expect(plainGet.status).toBe(200);
+    expect(plainGet.body).toEqual({ ok: true, service: 'senior-care-diagram-proxy' });
   });
 
-  it('returns 405 for a plain GET (no query params) when LEAD_CAPTURE_ENABLED is true', async () => {
+  it('returns 200 for a plain GET (no query params) when LEAD_CAPTURE_ENABLED is true', async () => {
     const { app } = makeApp();
     const res = await request(app).get('/');
-    expect(res.status).toBe(405);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, service: 'senior-care-diagram-proxy' });
   });
 });
 

@@ -50,10 +50,11 @@ describe('HTTP handler — CORS preflight', () => {
 });
 
 describe('HTTP handler — method validation', () => {
-  it('returns 405 for GET requests (lead capture disabled)', async () => {
+  it('returns 200 ok for a plain GET (root health probe)', async () => {
     const { app } = makeApp();
     const res = await request(app).get('/');
-    expect(res.status).toBe(405);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, service: 'senior-care-diagram-proxy' });
   });
 
   it('returns 405 for PUT requests', async () => {

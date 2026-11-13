@@ -84,6 +84,15 @@ async function handle(req: Request, res: Response, d: AppDeps, limiter: RateLimi
     return;
   }
 
+  // Root health probe: a plain GET with no action params answers 200 so the
+  // deployed service is verifiable from a browser. lead_confirm links (which
+  // carry action/token params) keep routing below.
+  if (req.method === 'GET' && !(req.query && (req.query.action || req.query.token))) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.status(200).json({ ok: true, service: 'senior-care-diagram-proxy' });
+    return;
+  }
+
   // Lead confirm GET path — gated by LEAD_CAPTURE_ENABLED
   if (
     req.method === 'GET' &&
