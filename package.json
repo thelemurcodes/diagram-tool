@@ -1,0 +1,18 @@
+{
+  "name": "diagram-tool",
+  "private": true,
+  "description": "Senior-care diagram maker: buildless static frontend on GitHub Pages + TypeScript/Express backend (deployed on Railway, data on Neon Postgres).",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspace server",
+    "start": "npm run start --workspace server",
+    "serve": "npm run serve --workspace server"
+  }
+}

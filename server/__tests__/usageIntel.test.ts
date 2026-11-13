@@ -1,315 +1,247 @@
-export {};
+/**
+ * Ported usage-intel tests (from usageIntel.test.ts). The handler is now a
+ * single aggregation behind LogStore.usageIntel; the in-memory store
+ * implements the same newest-500 aggregation, and assertions inspect its rows.
+ * Auth uses the body key `insightsKey` against the `insightsPassword` dep.
+ */
+import request from 'supertest';
+import { createApp } from '../src/app';
+import { RateLimiter } from '../src/util';
+import { MemoryLogStore } from '../src/stores/memoryStore';
+import { LogEvent } from '../src/stores/types';
 
-const registeredHandlers: Record<string, Function> = {};
+const KEY = 'super-secret-insights';
 
-jest.mock('@google-cloud/functions-framework', () => ({
-  http: (name: string, handler: Function) => {
-    registeredHandlers[name] = handler;
-  },
-}));
+function makeApp() {
+  const limiter = new RateLimiter();
+  const logStore = new MemoryLogStore();
+  const app = createApp({ logStore, insightsPassword: KEY }, limiter);
+  return { app, logStore };
+}
 
-let mockAdd: jest.Mock;
-let mockGet: jest.Mock;
-let mockLimit: jest.Mock;
-let mockOrderBy: jest.Mock;
-
-jest.mock('@google-cloud/firestore', () => {
-  mockAdd     = jest.fn().mockResolvedValue({});
-  mockGet     = jest.fn().mockResolvedValue({ docs: [] });
-  mockLimit   = jest.fn().mockReturnValue({ get: () => mockGet() });
-  mockOrderBy = jest.fn().mockReturnValue({ limit: mockLimit });
-
-  const mockWhere = jest.fn().mockReturnValue({
-    limit: jest.fn().mockReturnValue({ get: jest.fn().mockResolvedValue({ empty: true, docs: [] }) }),
-  });
-
-  const mockUpdate = jest.fn().mockResolvedValue({});
-  const mockDoc    = jest.fn().mockReturnValue({ update: mockUpdate });
-
-  const mockCollection = jest.fn().mockReturnValue({
-    add:     mockAdd,
-    where:   mockWhere,
-    doc:     mockDoc,
-    orderBy: mockOrderBy,
-  });
-
+function evt(overrides: Partial<LogEvent> = {}): LogEvent {
   return {
-    Firestore: jest.fn().mockImplementation(() => ({
-      collection: mockCollection,
-    })),
-  };
-});
-
-const mockFetch = jest.fn();
-(global as any).fetch = mockFetch;
-
-const { _hits } = require('../index') as {
-  _hits: Map<string, { count: number; resetAt: number }>;
-};
-
-function makeReq(
-  body: Record<string, unknown> = {},
-  headers: Record<string, string> = {},
-  method = 'POST'
-) {
-  return { method, body, headers, query: {} };
-}
-
-function makeRes() {
-  const recorded: { statusCode: number; body: unknown } = { statusCode: 200, body: null };
-  const res: any = {
-    _recorded: recorded,
-    set: () => res,
-    status: (code: number) => { recorded.statusCode = code; return res; },
-    json: (body: unknown) => { recorded.body = body; return res; },
-    send: (body: unknown) => { recorded.body = body; return res; },
-  };
-  return res;
-}
-
-async function callHandler(req: ReturnType<typeof makeReq>) {
-  const res = makeRes();
-  await registeredHandlers['diagram'](req, res);
-  return res._recorded;
-}
-
-function makeTimestamp(isoDate: string) {
-  const d = new Date(isoDate);
-  return { toDate: () => d };
-}
-
-function makeDiagramDoc(overrides: Record<string, unknown> = {}) {
-  return {
+    ts: new Date(),
     mode: 'describe',
     type: 'flowchart',
-    success: true,
-    referer: 'https://example.com',
+    prompt: 'p',
+    prompt_chars: 1,
+    ip_hash: 'aaa',
+    referer: '',
     template_id: null,
-    timestamp: makeTimestamp('2024-03-15T10:00:00Z'),
+    success: true,
     ...overrides,
   };
 }
 
-const FIXTURE_DOCS = [
-  makeDiagramDoc({ type: 'flowchart', mode: 'describe', success: true,  template_id: 'med-pass',      referer: 'https://snf.org',   timestamp: makeTimestamp('2024-03-15T10:00:00Z') }),
-  makeDiagramDoc({ type: 'flowchart', mode: 'describe', success: true,  template_id: 'med-pass',      referer: 'https://snf.org',   timestamp: makeTimestamp('2024-03-15T11:00:00Z') }),
-  makeDiagramDoc({ type: 'sequence',  mode: 'policy',   success: false, template_id: null,            referer: 'https://snf.org',   timestamp: makeTimestamp('2024-03-15T12:00:00Z') }),
-  makeDiagramDoc({ type: 'flowchart', mode: 'describe', success: true,  template_id: 'fall-response', referer: 'https://other.com', timestamp: makeTimestamp('2024-03-16T09:00:00Z') }),
-  makeDiagramDoc({ type: 'sequence',  mode: 'policy',   success: true,  template_id: null,            referer: 'https://other.com', timestamp: makeTimestamp('2024-03-16T10:00:00Z') }),
-];
+async function intel(app: ReturnType<typeof createApp>) {
+  return request(app).post('/').send({ action: 'usage_intel', insightsKey: KEY });
+}
 
-const VALID_INSIGHTS_KEY = 'super-secret-insights';
-
-beforeEach(() => {
-  _hits.clear();
-  mockFetch.mockReset();
-  mockAdd.mockReset();
-  mockAdd.mockResolvedValue({});
-  mockGet.mockReset();
-  mockGet.mockResolvedValue({ docs: [] });
-  mockOrderBy.mockClear();
-  mockLimit.mockClear();
-  process.env.ANTHROPIC_API_KEY = 'test-key';
-  process.env.INSIGHTS_PASSWORD = VALID_INSIGHTS_KEY;
-  delete process.env.LOG_PROMPTS;
-  delete process.env.LEAD_CAPTURE_ENABLED;
-  delete process.env.RESEND_API_KEY;
-});
-
-afterEach(() => {
-  delete process.env.INSIGHTS_PASSWORD;
-  delete process.env.ANTHROPIC_API_KEY;
-});
-
-describe('usage_intel — auth rejection', () => {
-  it('returns 401 and does not query Firestore when insightsKey is missing', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel' }));
-    expect(result.statusCode).toBe(401);
-    expect(mockOrderBy).not.toHaveBeenCalled();
+describe('usage intel — auth rejection', () => {
+  it('returns 401 when insightsKey is missing', async () => {
+    const { app } = makeApp();
+    const res = await request(app).post('/').send({ action: 'usage_intel' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toMatch(/unauthorized/i);
   });
 
-  it('returns 401 and does not query Firestore when insightsKey is wrong', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: 'wrong-key' }));
-    expect(result.statusCode).toBe(401);
-    expect(mockOrderBy).not.toHaveBeenCalled();
+  it('returns 401 when insightsKey is wrong', async () => {
+    const { app } = makeApp();
+    const res = await request(app)
+      .post('/')
+      .send({ action: 'usage_intel', insightsKey: 'wrong-key' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toMatch(/unauthorized/i);
   });
 
   it('returns 401 with the same generic message for a missing vs wrong key', async () => {
-    const missing = await callHandler(makeReq({ action: 'usage_intel' }));
-    const wrong   = await callHandler(makeReq({ action: 'usage_intel', insightsKey: 'bad' }));
-    expect(missing.statusCode).toBe(401);
-    expect(wrong.statusCode).toBe(401);
-    expect((missing.body as any).error).toBe((wrong.body as any).error);
+    const { app } = makeApp();
+    const missing = await request(app).post('/').send({ action: 'usage_intel' });
+    const wrong = await request(app)
+      .post('/')
+      .send({ action: 'usage_intel', insightsKey: 'bad' });
+    expect(missing.status).toBe(401);
+    expect(wrong.status).toBe(401);
+    expect(missing.body.error).toBe(wrong.body.error);
   });
 
-  it('returns 401 and does not query Firestore when INSIGHTS_PASSWORD env var is unset', async () => {
-    delete process.env.INSIGHTS_PASSWORD;
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    expect(result.statusCode).toBe(401);
-    expect((result.body as any).error).toBeDefined();
-    expect(mockOrderBy).not.toHaveBeenCalled();
-  });
-
-  it('returns the same 401 message whether INSIGHTS_PASSWORD is unset or the key is just wrong', async () => {
-    delete process.env.INSIGHTS_PASSWORD;
-    const unset = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-
-    process.env.INSIGHTS_PASSWORD = VALID_INSIGHTS_KEY;
-    const wrong = await callHandler(makeReq({ action: 'usage_intel', insightsKey: 'not-the-right-key' }));
-
-    expect(unset.statusCode).toBe(401);
-    expect(wrong.statusCode).toBe(401);
-    expect((unset.body as any).error).toBe((wrong.body as any).error);
+  it('returns 401 when no insights password is configured (no default backdoor)', async () => {
+    const limiter = new RateLimiter();
+    const app = createApp({ insightsPassword: '' }, limiter);
+    const res = await request(app)
+      .post('/')
+      .send({ action: 'usage_intel', insightsKey: KEY });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBeDefined();
   });
 });
 
-describe('usage_intel — bounded query chain', () => {
-  it('reads only the most recent 500 docs and reflects that count in totalFetched', async () => {
-    const fiveDocs = Array.from({ length: 5 }, (_, i) =>
-      ({ data: () => makeDiagramDoc({ timestamp: makeTimestamp(`2024-03-${String(i + 1).padStart(2, '0')}T10:00:00Z`) }) })
+describe('usage intel — bounded aggregation', () => {
+  it('returns 200 with the aggregate shape for an authorized request', async () => {
+    const { app, logStore } = makeApp();
+    await logStore.log(evt({ type: 'flowchart', mode: 'describe' }));
+    await logStore.log(
+      evt({ type: 'sequence', mode: 'policy', success: false, error: 'upstream_500' })
     );
-    mockGet.mockResolvedValueOnce({ docs: fiveDocs });
 
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
+    const res = await intel(app);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('totalFetched');
+    expect(res.body).toHaveProperty('successRate');
+    expect(res.body).toHaveProperty('byType');
+    expect(res.body).toHaveProperty('byMode');
+    expect(res.body).toHaveProperty('byTemplateId');
+    expect(res.body).toHaveProperty('byReferrer');
+    expect(res.body).toHaveProperty('dailyVolume');
+  });
 
-    expect(result.statusCode).toBe(200);
-    expect((result.body as any).totalFetched).toBe(5);
-    expect(mockOrderBy).toHaveBeenCalledWith('timestamp', 'desc');
-    expect(mockLimit).toHaveBeenCalledWith(500);
+  it('totalFetched equals the number of log rows', async () => {
+    const { app, logStore } = makeApp();
+    for (let i = 0; i < 5; i++) {
+      await logStore.log(evt({ prompt: `p${i}` }));
+    }
+    const res = await intel(app);
+    expect(res.status).toBe(200);
+    expect(res.body.totalFetched).toBe(5);
+  });
+
+  it('aggregates over only the newest 500 records', async () => {
+    const { app, logStore } = makeApp();
+    // 505 rows, each ~1 minute apart going back in time.
+    const now = Date.now();
+    for (let i = 0; i < 505; i++) {
+      await logStore.log(evt({ ts: new Date(now - i * 60_000), prompt: `p${i}` }));
+    }
+    const res = await intel(app);
+    expect(res.status).toBe(200);
+    expect(res.body.totalFetched).toBe(500);
+  });
+
+  it('successRate is computed correctly (3 of 4 succeeded)', async () => {
+    const { app, logStore } = makeApp();
+    for (let i = 0; i < 3; i++) await logStore.log(evt({ success: true }));
+    await logStore.log(evt({ success: false, error: 'timeout' }));
+    const res = await intel(app);
+    expect(res.status).toBe(200);
+    expect(res.body.successRate).toBeCloseTo(3 / 4);
+  });
+
+  it('successRate is 0 (not NaN) when there are no rows', async () => {
+    const { app } = makeApp();
+    const res = await intel(app);
+    expect(res.status).toBe(200);
+    expect(res.body.totalFetched).toBe(0);
+    expect(res.body.successRate).toBe(0);
   });
 });
 
-describe('usage_intel — correct aggregation from fixture docs', () => {
-  beforeEach(() => {
-    mockGet.mockResolvedValueOnce({
-      docs: FIXTURE_DOCS.map(d => ({ data: () => d })),
-    });
+describe('usage intel — breakdowns from logged rows', () => {
+  it('byType counts each diagram type', async () => {
+    const { app, logStore } = makeApp();
+    for (let i = 0; i < 3; i++) await logStore.log(evt({ type: 'flowchart' }));
+    for (let i = 0; i < 2; i++) await logStore.log(evt({ type: 'sequence' }));
+    const res = await intel(app);
+    expect(res.body.byType).toEqual({ flowchart: 3, sequence: 2 });
   });
 
-  it('returns 200 with the aggregate shape', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    expect(result.statusCode).toBe(200);
-    const body = result.body as any;
-    expect(body).toHaveProperty('totalFetched');
-    expect(body).toHaveProperty('successRate');
-    expect(body).toHaveProperty('byType');
-    expect(body).toHaveProperty('byMode');
-    expect(body).toHaveProperty('byTemplateId');
-    expect(body).toHaveProperty('byReferrer');
-    expect(body).toHaveProperty('dailyVolume');
-  });
-
-  it('totalFetched equals the number of fixture docs', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    expect((result.body as any).totalFetched).toBe(5);
-  });
-
-  it('successRate is computed correctly (4 of 5 docs succeeded)', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    expect((result.body as any).successRate).toBeCloseTo(4 / 5);
-  });
-
-  it('byType counts each type value correctly', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const byType = (result.body as any).byType;
-    expect(byType.flowchart).toBe(3);
-    expect(byType.sequence).toBe(2);
-  });
-
-  it('byMode counts each mode value correctly', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const byMode = (result.body as any).byMode;
-    expect(byMode.describe).toBe(3);
-    expect(byMode.policy).toBe(2);
+  it('byMode counts each mode', async () => {
+    const { app, logStore } = makeApp();
+    for (let i = 0; i < 3; i++) await logStore.log(evt({ mode: 'describe' }));
+    for (let i = 0; i < 2; i++) await logStore.log(evt({ mode: 'policy' }));
+    const res = await intel(app);
+    expect(res.body.byMode).toEqual({ describe: 3, policy: 2 });
   });
 
   it('byTemplateId includes only non-null template_id values with correct counts', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const byTemplateId = (result.body as any).byTemplateId;
-    expect(byTemplateId['med-pass']).toBe(2);
-    expect(byTemplateId['fall-response']).toBe(1);
-    expect(Object.keys(byTemplateId)).not.toContain('null');
-    expect(Object.keys(byTemplateId)).toHaveLength(2);
+    const { app, logStore } = makeApp();
+    await logStore.log(evt({ template_id: 'med-pass' }));
+    await logStore.log(evt({ template_id: 'med-pass' }));
+    await logStore.log(evt({ template_id: 'fall-response' }));
+    await logStore.log(evt({ template_id: null }));
+    const res = await intel(app);
+    expect(res.body.byTemplateId).toEqual({ 'med-pass': 2, 'fall-response': 1 });
   });
 
-  it('byReferrer counts distinct referer values', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const byReferrer = (result.body as any).byReferrer;
-    expect(byReferrer['https://snf.org']).toBe(3);
-    expect(byReferrer['https://other.com']).toBe(2);
+  it('byReferrer counts distinct referers and caps at 10 entries', async () => {
+    const { app, logStore } = makeApp();
+    await logStore.log(evt({ referer: 'https://snf.org' }));
+    await logStore.log(evt({ referer: 'https://snf.org' }));
+    await logStore.log(evt({ referer: 'https://other.com' }));
+    for (let i = 0; i < 12; i++) {
+      await logStore.log(evt({ referer: `https://site${i}.com` }));
+    }
+    const res = await intel(app);
+    expect(Object.keys(res.body.byReferrer).length).toBeLessThanOrEqual(10);
+    expect(res.body.byReferrer['https://snf.org']).toBe(2);
   });
 
-  it('dailyVolume maps YYYY-MM-DD dates to correct counts across two different days', async () => {
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const dailyVolume = (result.body as any).dailyVolume;
-    expect(dailyVolume['2024-03-15']).toBe(3);
-    expect(dailyVolume['2024-03-16']).toBe(2);
-    expect(Object.keys(dailyVolume)).toHaveLength(2);
-  });
-});
-
-describe('usage_intel — byReferrer cap at top 10', () => {
-  it('caps byReferrer to at most 10 entries when there are more than 10 distinct referrers', async () => {
-    const manyRefererDocs = Array.from({ length: 15 }, (_, i) =>
-      ({ data: () => makeDiagramDoc({ referer: `https://site${i}.com`, timestamp: makeTimestamp('2024-03-15T10:00:00Z') }) })
-    );
-    mockGet.mockResolvedValueOnce({ docs: manyRefererDocs });
-
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    const byReferrer = (result.body as any).byReferrer;
-    expect(Object.keys(byReferrer).length).toBeLessThanOrEqual(10);
+  it('dailyVolume maps YYYY-MM-DD dates to correct counts across days', async () => {
+    const { app, logStore } = makeApp();
+    await logStore.log(evt({ ts: new Date('2024-03-15T10:00:00Z') }));
+    await logStore.log(evt({ ts: new Date('2024-03-15T11:00:00Z') }));
+    await logStore.log(evt({ ts: new Date('2024-03-16T09:00:00Z') }));
+    const res = await intel(app);
+    expect(res.body.dailyVolume['2024-03-15']).toBe(2);
+    expect(res.body.dailyVolume['2024-03-16']).toBe(1);
+    expect(Object.keys(res.body.dailyVolume)).toHaveLength(2);
   });
 });
 
-describe('usage_intel — Firestore query failure', () => {
-  it('returns 502 and does not crash when the Firestore query throws', async () => {
-    mockGet.mockRejectedValueOnce(new Error('Firestore unavailable'));
-
-    const result = await callHandler(makeReq({ action: 'usage_intel', insightsKey: VALID_INSIGHTS_KEY }));
-    expect(result.statusCode).toBe(502);
-    expect((result.body as any).error).toBeDefined();
-  });
-});
-
-describe('diagram generation — templateId logging', () => {
-  function anthropicOk(text = 'flowchart TD\n  A --> B') {
-    return {
-      ok: true,
-      json: async () => ({ content: [{ text }], usage: { input_tokens: 10, output_tokens: 20 } }),
-      text: async () => '',
+describe('usage intel — store failures', () => {
+  it('returns 502 and does not crash when the aggregation throws', async () => {
+    const limiter = new RateLimiter();
+    const failingStore = {
+      log: async () => {},
+      usageIntel: jest.fn().mockRejectedValue(new Error('DB unavailable')),
     };
-  }
+    const app = createApp({ logStore: failingStore as any, insightsPassword: KEY }, limiter);
+    const res = await request(app)
+      .post('/')
+      .send({ action: 'usage_intel', insightsKey: KEY });
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBeDefined();
+  });
+});
 
-  it('includes template_id in the diagram_logs write when templateId is provided in the request', async () => {
-    process.env.LOG_PROMPTS = 'true';
-    mockFetch.mockResolvedValueOnce(anthropicOk());
-
-    const result = await callHandler(makeReq({
-      prompt: 'Show a med-pass workflow',
-      type: 'flowchart',
-      mode: 'describe',
-      templateId: 'med-pass',
-    }));
-
-    expect(result.statusCode).toBe(200);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
-    const logged = mockAdd.mock.calls[0][0];
-    expect(logged.template_id).toBe('med-pass');
+describe('usage intel — diagram generation logging', () => {
+  it('logs template_id from the request when provided', async () => {
+    const { app, logStore } = makeApp();
+    const res = await request(app)
+      .post('/')
+      .send({
+        prompt: 'Show a med-pass workflow',
+        type: 'flowchart',
+        mode: 'describe',
+        templateId: 'med-pass',
+      });
+    expect(res.status).toBe(200);
+    expect(logStore.rows).toHaveLength(1);
+    expect(logStore.rows[0].template_id).toBe('med-pass');
+    expect(logStore.rows[0].success).toBe(true);
   });
 
-  it('logs template_id: null when templateId is absent from the request', async () => {
-    process.env.LOG_PROMPTS = 'true';
-    mockFetch.mockResolvedValueOnce(anthropicOk());
+  it('logs template_id: null when templateId is absent, with usage counts', async () => {
+    const { app, logStore } = makeApp();
+    const res = await request(app)
+      .post('/')
+      .send({ prompt: 'Show an admission workflow', type: 'flowchart', mode: 'describe' });
+    expect(res.status).toBe(200);
+    expect(logStore.rows[0].template_id).toBeNull();
+    expect(logStore.rows[0].usage_in).toBeGreaterThan(0);
+    expect(logStore.rows[0].usage_out).toBeGreaterThan(0);
+    // Success rows carry no error (the field may be omitted entirely).
+    expect(logStore.rows[0].error ?? null).toBeNull();
+  });
 
-    const result = await callHandler(makeReq({
-      prompt: 'Show an admission workflow',
-      type: 'flowchart',
-      mode: 'describe',
-    }));
-
-    expect(result.statusCode).toBe(200);
-    expect(mockAdd).toHaveBeenCalledTimes(1);
-    const logged = mockAdd.mock.calls[0][0];
-    expect(logged.template_id).toBeNull();
+  it('never stores the raw IP (ip_hash only, 16 hex chars)', async () => {
+    const { app, logStore } = makeApp();
+    await request(app)
+      .post('/')
+      .set('x-forwarded-for', '203.0.113.9')
+      .send({ prompt: 'intake workflow' });
+    const row = logStore.rows[0];
+    expect(row.ip_hash).toHaveLength(16);
+    expect(JSON.stringify(row)).not.toContain('203.0.113.9');
   });
 });

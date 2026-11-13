@@ -1,24 +1,35 @@
 {
   "name": "senior-care-diagram-proxy",
-  "version": "1.1.0",
-  "description": "Cloud Function proxy that turns plain-English descriptions OR pasted policies into Mermaid diagrams via Claude Haiku. Logs submissions to Firestore for pattern analysis.",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Express backend that turns plain-English descriptions OR pasted policies into Mermaid diagrams via Claude Haiku. Logs submissions to Postgres (Neon) for pattern analysis.",
+  "main": "dist/index.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "functions-framework --target=diagram",
-    "dev": "functions-framework --target=diagram --port=8080",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "serve": "ts-node src/index.ts",
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "@google-cloud/functions-framework": "^3.4.0",
-    "@google-cloud/firestore": "^7.10.0"
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@embedded-postgres/linux-x64": "^17.4.0-beta.15",
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "@types/supertest": "^6.0.2",
+    "embedded-postgres": "^17.4.0-beta.15",
     "jest": "^29.7.0",
+    "supertest": "^7.0.0",
     "ts-jest": "^29.2.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
   "jest": {

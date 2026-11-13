@@ -1,0 +1,5 @@
+{
+  "text": "flowchart TD\n  A[Fall identified] --> B{Resident responsive?}\n  B -- No --> C[Call 911]\n  B -- Yes --> D[Assess for injury]\n  D --> E{Injury suspected?}\n  E -- Yes --> F[Notify provider]\n  E -- No --> G[Assist to bed]\n  F --> H[Complete incident report]\n  G --> H",
+  "usageIn": 110,
+  "usageOut": 105
+}

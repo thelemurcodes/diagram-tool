@@ -1,0 +1,5 @@
+{
+  "text": "sequenceDiagram\n  participant RN as Charge nurse\n  participant MD as Provider\n  participant FAM as Family\n  RN->>MD: Report change in condition\n  MD->>RN: Orders received\n  RN->>FAM: Notify of change\n  FAM-->>RN: Acknowledgment",
+  "usageIn": 90,
+  "usageOut": 70
+}
