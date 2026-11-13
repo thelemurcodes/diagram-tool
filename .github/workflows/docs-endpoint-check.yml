@@ -1,0 +1,25 @@
+name: docs endpoint guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/check-docs-endpoint.sh'
+      - '.github/workflows/docs-endpoint-check.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'scripts/check-docs-endpoint.sh'
+      - '.github/workflows/docs-endpoint-check.yml'
+  schedule:
+    - cron: '0 6 * * *' # nightly
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify docs reference only the production backend
+        run: bash scripts/check-docs-endpoint.sh
