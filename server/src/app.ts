@@ -285,11 +285,12 @@ async function handle(req: Request, res: Response, d: AppDeps, limiter: RateLimi
   }
 
   const referer = String(req.headers['referer'] || req.headers['referrer'] || '').slice(0, 300);
+  // Data minimisation (DIAG-ADR-002): only derived usage fields are logged —
+  // never the raw prompt, which may contain pasted policy content (PII risk).
   const logBase = {
     ts: new Date(),
     mode,
     type,
-    prompt,
     prompt_chars: prompt.length,
     ip_hash: ipHash,
     referer,

@@ -20,7 +20,7 @@ Environment variables (values set in the Railway dashboard, owner-managed):
 - `ALLOWED_ORIGIN=https://thelemurcodes.github.io` — CORS locked to the Pages origin, never `*`
 - `ANTHROPIC_API_KEY` — owner-set on the Railway service; never in the repo, CI, logs, or the browser
 - `DATABASE_URL` — Neon `app` database, pooled endpoint (see below)
-- `LOG_PROMPTS=true` — prompt logging on; writes go to the Neon `diagram_logs` table
+- `LOG_PROMPTS=true` — logging on; writes derived usage fields only to the Neon `diagram_logs` table, never prompt text (DIAG-ADR-002)
 - `LEAD_CAPTURE_ENABLED` — unset (default off, per DIAG-ADR-001)
 
 ## Data — Neon Postgres

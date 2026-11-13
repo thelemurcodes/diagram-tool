@@ -21,7 +21,6 @@ function evt(overrides: Partial<LogEvent> = {}): LogEvent {
     ts: new Date(),
     mode: 'describe',
     type: 'flowchart',
-    prompt: 'p',
     prompt_chars: 1,
     ip_hash: 'aaa',
     referer: '',
@@ -122,7 +121,7 @@ describe.each(factories)('LogStore contract — $name', ({ makeStores }) => {
   });
 
   it('stores a logged event and reports it in usageIntel totals', async () => {
-    await ctx.logStore.log(evt({ prompt: 'first prompt', prompt_chars: 12 }));
+    await ctx.logStore.log(evt({ prompt_chars: 12 }));
     const intel = await ctx.logStore.usageIntel();
     expect(intel.totalFetched).toBe(1);
     expect(intel.successRate).toBeCloseTo(1);
@@ -153,7 +152,7 @@ describe.each(factories)('LogStore contract — $name', ({ makeStores }) => {
   it('aggregates only the newest 500 records', async () => {
     const now = Date.now();
     for (let i = 0; i < 505; i++) {
-      await ctx.logStore.log(evt({ ts: new Date(now - i * 60_000), prompt: `p${i}` }));
+      await ctx.logStore.log(evt({ ts: new Date(now - i * 60_000) }));
     }
     const intel = await ctx.logStore.usageIntel();
     expect(intel.totalFetched).toBe(500);
@@ -165,6 +164,39 @@ describe.each(factories)('LogStore contract — $name', ({ makeStores }) => {
     expect(intel.successRate).toBe(0);
     expect(intel.byType).toEqual({});
     expect(intel.byMode).toEqual({});
+  });
+
+  // DIAG-ADR-002 regression: raw prompt text must never reach either store.
+  // A marker is smuggled in via a cast to simulate a caller still passing a
+  // `prompt` field — if the Postgres INSERT ever persisted it again, the
+  // SELECT check below fails. The memory store copies the event it is given
+  // verbatim (it cannot sanitize), so for it the guarantee is that a normal
+  // event persists with no `prompt` key — the app never constructs one.
+  it('never persists raw prompt text (DIAG-ADR-002)', async () => {
+    if (ctx.logStore instanceof MemoryLogStore) {
+      await ctx.logStore.log(evt({}));
+      const row = ctx.logStore.rows[0] as unknown as Record<string, unknown>;
+      expect('prompt' in row).toBe(false);
+      return;
+    }
+
+    const marker = 'POLICY-MARKER Resident Jane Doe (DOB 1931) requires insulin at 11:00';
+    const event = evt({ prompt_chars: marker.length }) as unknown as Record<string, unknown>;
+    event.prompt = marker;
+    await ctx.logStore.log(event as unknown as LogEvent);
+
+    const client = await (ctx.logStore as unknown as { pool: { connect(): Promise<any> } }).pool.connect();
+    try {
+      const { rows } = await client.query('SELECT * FROM diagram_logs');
+      expect(rows).toHaveLength(1);
+      const row: Record<string, unknown> = rows[0];
+      expect('prompt' in row).toBe(false);
+      for (const value of Object.values(row)) {
+        expect(typeof value === 'string' ? value : JSON.stringify(value) ?? '').not.toContain(marker);
+      }
+    } finally {
+      client.release();
+    }
   });
 });
 

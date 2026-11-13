@@ -9,7 +9,6 @@ export interface LogEvent {
   ts: Date;
   mode: string;
   type: string;
-  prompt: string;
   prompt_chars: number;
   ip_hash: string;
   referer: string;

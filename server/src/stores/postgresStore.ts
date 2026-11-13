@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS diagram_logs (
   ts timestamptz DEFAULT now(),
   mode text,
   type text,
-  prompt text,
+  -- No "prompt" column since DIAG-ADR-002 (zero raw text). The production
+  -- table keeps a historical, nullable "prompt" column that new inserts never
+  -- write; removal/deletion is an owner decision, no migration is run here.
   prompt_chars int,
   ip_hash text,
   referer text,
@@ -70,14 +72,13 @@ export class PostgresLogStore implements LogStore {
   async log(event: LogEvent): Promise<void> {
     await this.pool.query(
       `INSERT INTO diagram_logs
-         (ts, mode, type, prompt, prompt_chars, ip_hash, referer, template_id,
+         (ts, mode, type, prompt_chars, ip_hash, referer, template_id,
           success, error, mermaid_chars, usage_in, usage_out)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         event.ts,
         event.mode,
         event.type,
-        event.prompt,
         event.prompt_chars,
         event.ip_hash,
         event.referer,
