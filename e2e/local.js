@@ -179,9 +179,31 @@ let backend; // hoisted so the failure handler below can always kill it
   }
 
   await generate('describe', DESCRIBE_PROMPT);
+
+  // Regression guard: the lead-capture prompt must never auto-open after a
+  // generation completes. It opens only from an explicit click on #lead-open.
+  async function expectLeadPromptClosed(stageLabel) {
+    const state = await page.evaluate(() => ({
+      promptHidden: document.querySelector('#lead-prompt').classList.contains('hidden'),
+      entryVisible: !document.querySelector('#lead-entry').classList.contains('hidden'),
+    }));
+    if (!state.promptHidden) failures.push(`lead prompt auto-opened (${stageLabel})`);
+    if (!state.entryVisible) failures.push(`lead entry point not visible (${stageLabel})`);
+  }
+  await expectLeadPromptClosed('after describe generation');
+
+  // Explicit click opens the prompt; dismiss restores the entry point.
+  await page.click('#lead-open');
+  await page.waitForFunction(() => !document.querySelector('#lead-prompt').classList.contains('hidden'));
+  console.log('[e2e] lead prompt opened from explicit click');
+  await page.click('#lead-prompt-dismiss');
+  await page.waitForFunction(() => document.querySelector('#lead-prompt').classList.contains('hidden'));
+  await expectLeadPromptClosed('after dismissing lead prompt');
+
   await page.click('button.mode[data-mode="policy"]');
   await page.waitForTimeout(300);
   await generate('policy', POLICY_TEXT);
+  await expectLeadPromptClosed('after policy generation');
 
   await browser.close();
   docsServer.close();

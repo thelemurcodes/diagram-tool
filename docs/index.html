@@ -250,6 +250,21 @@
   #lead-msg.show{display:block}
   #lead-msg.ok{color:var(--ok);font-weight:600}
   #lead-msg.err{color:var(--warn)}
+
+  /* Lead-capture entry point: the only way the prompt opens */
+  #lead-entry{margin-top:14px;max-width:600px}
+  #lead-open{
+    background:none;
+    border:none;
+    padding:0;
+    font-family:var(--font);
+    font-size:12.5px;
+    color:var(--muted);
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  #lead-open:hover{color:var(--brand)}
+
 </style>
 </head>
 <body>
@@ -362,7 +377,10 @@
     </section>
   </div>
 
-  <!-- Lead-capture prompt: shown once per session after first successful generation -->
+  <!-- Lead capture: opt-in only. Opens solely from the #lead-entry button below — never auto-shown. -->
+  <div id="lead-entry">
+    <button type="button" id="lead-open">Notify me about new templates</button>
+  </div>
   <div id="lead-prompt" class="hidden" aria-label="Get notified about new templates">
     <button id="lead-prompt-dismiss" type="button" aria-label="Dismiss">×</button>
     <p class="lcp-hed">Notify me about new senior-care templates</p>
@@ -926,7 +944,6 @@ async function generate(){
     $("code").value = currentCode;
     const ok = await render(currentCode);
     enableTools(ok);
-    if (ok) maybeShowLeadPrompt();
   }catch(err){
     handleError(err);
   }finally{
@@ -1134,21 +1151,34 @@ $("prompt").addEventListener("keydown", e => {
 const LEAD_CAPTURE_UI_ENABLED = true;
 let leadPromptShown = false;
 
-function maybeShowLeadPrompt(){
+/* The only way the lead prompt opens: an explicit click on #lead-open.
+   Generation code must never call into this. */
+function openLeadPrompt(){
   if (!LEAD_CAPTURE_UI_ENABLED) return;
   if (leadPromptShown) return;
   try {
     if (sessionStorage.getItem("lc_done")) return;
   } catch(_){}
   leadPromptShown = true;
+  $("lead-entry").classList.add("hidden");
   $("lead-prompt").classList.remove("hidden");
 }
 
 function dismissLeadPrompt(){
   $("lead-prompt").classList.add("hidden");
+  $("lead-entry").classList.remove("hidden");
 }
 
+$("lead-open").onclick = openLeadPrompt;
 $("lead-prompt-dismiss").onclick = dismissLeadPrompt;
+
+/* Hide the entry point entirely when the flag is off or this session already subscribed */
+function updateLeadEntryVisibility(){
+  let done = false;
+  try { done = !!sessionStorage.getItem("lc_done"); } catch(_){}
+  $("lead-entry").classList.toggle("hidden", !LEAD_CAPTURE_UI_ENABLED || done);
+}
+updateLeadEntryVisibility();
 
 function updateLeadSubmitState(){
   const email = $("lead-email").value.trim();
@@ -1186,6 +1216,7 @@ $("lead-submit").onclick = async () => {
     if (res.ok) {
       try { sessionStorage.setItem("lc_done", "1"); } catch(_){}
       leadPromptShown = true;
+      updateLeadEntryVisibility();
       $("lead-prompt").innerHTML = '<p style="margin:0;font-size:14px;color:var(--ok);font-weight:600">Thanks — check your email to confirm.</p>';
     } else {
       btn.disabled = false;
