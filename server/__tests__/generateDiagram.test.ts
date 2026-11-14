@@ -350,6 +350,30 @@ describe('HTTP handler — happy path (recorded-response fake)', () => {
     expect(logStore.rows[0].usage_out).toBeGreaterThan(0);
   });
 
+  it('never stores raw prompt text for a policy-mode request (DIAG-ADR-002)', async () => {
+    const marker =
+      'Policy-MARKER: Resident Jane Doe (DOB 1931) requires insulin at 11:00 with UTI precautions';
+    const logStore = new MemoryLogStore();
+    const limiter = new RateLimiter();
+    const app = createApp({ logStore }, limiter);
+    const res = await request(app)
+      .post('/')
+      .send({ prompt: marker, type: 'flowchart', mode: 'policy' });
+    expect(res.status).toBe(200);
+    expect(logStore.rows).toHaveLength(1);
+
+    const row: Record<string, unknown> = logStore.rows[0] as unknown as Record<string, unknown>;
+    // Strict: the event carries no `prompt` field at all, and no string value
+    // anywhere in the logged row contains any part of the pasted policy.
+    expect('prompt' in row).toBe(false);
+    for (const value of Object.values(row)) {
+      const asText = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+      expect(asText).not.toContain(marker);
+      expect(asText).not.toContain('Jane Doe');
+    }
+    expect(row.prompt_chars).toBe(marker.length);
+  });
+
   it('responds 200 even when the log store write fails', async () => {
     const failingLogStore = {
       log: jest.fn().mockRejectedValueOnce(new Error('log down')),

@@ -24,7 +24,6 @@ function evt(overrides: Partial<LogEvent> = {}): LogEvent {
     ts: new Date(),
     mode: 'describe',
     type: 'flowchart',
-    prompt: 'p',
     prompt_chars: 1,
     ip_hash: 'aaa',
     referer: '',
@@ -99,7 +98,7 @@ describe('usage intel — bounded aggregation', () => {
   it('totalFetched equals the number of log rows', async () => {
     const { app, logStore } = makeApp();
     for (let i = 0; i < 5; i++) {
-      await logStore.log(evt({ prompt: `p${i}` }));
+      await logStore.log(evt({}));
     }
     const res = await intel(app);
     expect(res.status).toBe(200);
@@ -111,7 +110,7 @@ describe('usage intel — bounded aggregation', () => {
     // 505 rows, each ~1 minute apart going back in time.
     const now = Date.now();
     for (let i = 0; i < 505; i++) {
-      await logStore.log(evt({ ts: new Date(now - i * 60_000), prompt: `p${i}` }));
+      await logStore.log(evt({ ts: new Date(now - i * 60_000) }));
     }
     const res = await intel(app);
     expect(res.status).toBe(200);

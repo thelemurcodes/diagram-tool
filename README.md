@@ -14,7 +14,8 @@ in both modes (describe and policy) against the Railway backend.
 - Backend: https://backend-production-01bfe80e.up.railway.app (Railway, deployed from `main` via the Railway GitHub App — no deploy scripts, no stored keys)
 - CI: GitHub Actions (`ci.yml`) on every PR and `main` — typecheck, jest, Playwright e2e against the local recorded-response fake. **Green with no Anthropic key anywhere.**
 - Lead capture: **off** (`LEAD_CAPTURE_ENABLED` unset, per DIAG-ADR-001)
-- Prompt logging: **on** (`LOG_PROMPTS=true`) — writes to Postgres `diagram_logs`
+- Prompt logging: **on** (`LOG_PROMPTS=true`) — writes derived usage fields to Postgres
+  `diagram_logs` only; prompt text is never stored (DIAG-ADR-002)
 
 **Launch gate (not a build gate):** `docs/terms.html` needs legal review before
 lead capture is enabled. Recorded here; building proceeds with capture off.
