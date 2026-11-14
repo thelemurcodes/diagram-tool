@@ -33,6 +33,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css',
   '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
@@ -125,6 +126,41 @@ let backend; // hoisted so the failure handler below can always kill it
     if (u.includes('api.anthropic.com')) failures.push('browser contacted api.anthropic.com');
   });
 
+  // Policy completeness review: the frontend re-sends the policy + diagram to
+  // the SAME endpoint as a second model call. Intercept those requests (they
+  // carry the "completeness review" instruction) and answer with a canned JSON
+  // review so the checklist flow runs end to end, deterministically and
+  // keyless. The recorded-response backend can't produce JSON reviews (its
+  // fixtures are mermaid), and server/ is out of bounds for this branch.
+  const REVIEW_JSON = JSON.stringify({
+    normal_path: [
+      'Verify the five rights before administration',
+      'Document on the MAR immediately after administration',
+    ],
+    errors: ['Medication error is reported to the charge nurse immediately'],
+    refusals: ['A refused dose is reported to the charge nurse'],
+    exceptions: [
+      { title: 'Missed dose', detail: 'A missed dose is reported to the charge nurse within 15 minutes and documented.' },
+    ],
+    missing: ['Allergy and interaction check is shown on the diagram'],
+  });
+  let reviewRequests = 0;
+  await page.route((url) => url.toString().startsWith(`${BACKEND}/`), async (route) => {
+    const req = route.request();
+    const body = req.postData() || '';
+    if (req.method() === 'POST' && body.includes('completeness review')) {
+      reviewRequests++;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+        body: JSON.stringify({ mermaid: REVIEW_JSON }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   await page.goto(`http://localhost:${FRONTEND_PORT}/`, { waitUntil: 'networkidle' });
   console.log('[e2e] docs/index.html loaded');
 
@@ -180,6 +216,14 @@ let backend; // hoisted so the failure handler below can always kill it
 
   await generate('describe', DESCRIBE_PROMPT);
 
+  // Regression guard: describe mode must be unchanged — no completeness review
+  // call, and the checklist never appears.
+  const checklistHiddenAfterDescribe = await page.evaluate(
+    () => document.querySelector('#checklist').classList.contains('hidden')
+  );
+  if (!checklistHiddenAfterDescribe) failures.push('checklist shown after describe generation');
+  if (reviewRequests !== 0) failures.push(`completeness review fired in describe mode (${reviewRequests} calls)`);
+
   // Regression guard: the lead-capture prompt must never auto-open after a
   // generation completes. It opens only from an explicit click on #lead-open.
   async function expectLeadPromptClosed(stageLabel) {
@@ -204,6 +248,44 @@ let backend; // hoisted so the failure handler below can always kill it
   await page.waitForTimeout(300);
   await generate('policy', POLICY_TEXT);
   await expectLeadPromptClosed('after policy generation');
+
+  // Policy mode: the generation is followed by a completeness review call and
+  // the checklist renders under the result.
+  await page.waitForFunction(() => !document.querySelector('#checklist').classList.contains('hidden'), null, { timeout: 30000 });
+  if (reviewRequests !== 1) failures.push(`expected exactly 1 completeness review call, got ${reviewRequests}`);
+  const checklistState = await page.evaluate(() => ({
+    heading: document.querySelector('#checklist h3')?.textContent || '',
+    missingItems: Array.from(document.querySelectorAll('#checklist .cl-missing li')).map((li) => li.textContent),
+    exceptionButtons: document.querySelectorAll('#checklist .cl-diag').length,
+  }));
+  if (!checklistState.heading.includes('Policy completeness review')) failures.push(`checklist heading wrong: ${checklistState.heading}`);
+  if (checklistState.missingItems.length !== 1 || !checklistState.missingItems[0].includes('Allergy')) {
+    failures.push(`missing-items section wrong: ${JSON.stringify(checklistState.missingItems)}`);
+  }
+  if (checklistState.exceptionButtons !== 1) failures.push(`expected 1 per-exception button, got ${checklistState.exceptionButtons}`);
+  await page.locator('#checklist').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(EVIDENCE_DIR, 'local-policy-checklist-1280.png') });
+  console.log('[e2e] policy checklist rendered with missing-item + exception row');
+
+  // Per-exception "Diagram this": re-issues generation for that exception only,
+  // with no second completeness review. The user's policy stays in the textarea.
+  await page.click('#checklist .cl-diag');
+  await page.waitForFunction(
+    () => {
+      const svgs = document.querySelectorAll('#diagram svg');
+      return svgs.length > 0;
+    },
+    null,
+    { timeout: 60000 }
+  );
+  await page.waitForFunction(() => document.querySelector('#checklist').classList.contains('hidden'), null, { timeout: 10000 });
+  if (reviewRequests !== 1) failures.push(`per-exception generation must not trigger a review (got ${reviewRequests} total)`);
+  const promptAfter = await page.inputValue('#prompt');
+  if (!promptAfter.includes('Medication Administration Policy')) failures.push('per-exception generation clobbered the pasted policy');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: path.join(EVIDENCE_DIR, 'local-policy-exception-diagram-1280.png') });
+  console.log('[e2e] per-exception diagram generated; policy preserved; review suppressed');
 
   await browser.close();
   docsServer.close();
