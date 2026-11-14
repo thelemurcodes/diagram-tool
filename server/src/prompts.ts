@@ -19,6 +19,7 @@ export function systemPrompt(type: string, mode: string): string {
           'The user has pasted a policy, procedure, or guideline document.',
           'Read it carefully, extract the operational steps, decisions, roles, and escalation paths, and turn THAT into a single valid Mermaid.js diagram.',
           'Ignore preamble, legal boilerplate, definitions, and citations — focus on what someone actually does, step by step.',
+          'Route each step, issue, or escalation to the department, role, or owner the policy actually assigns — never default several items to one department unless the policy says so.',
           `Prefer ${hint}.`,
         ]
       : [
@@ -33,6 +34,7 @@ export function systemPrompt(type: string, mode: string): string {
     '- Keep node labels short and clear; wrap long text in double quotes.',
     '- Use simple, ASCII-safe characters in IDs; put readable text in the labels.',
     '- Avoid parentheses, semicolons, and special characters inside labels that break Mermaid.',
+    '- Keep the flow acyclic: arrows move forward through the process. Only draw a back-edge (a loop to an earlier step) when the policy itself explicitly says the process repeats or returns to an earlier step.',
     '- Keep it readable: aim for 6-20 nodes unless more are clearly needed.',
     '- It must parse on the first try.',
   ];

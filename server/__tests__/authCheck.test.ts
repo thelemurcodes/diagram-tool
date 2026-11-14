@@ -103,7 +103,8 @@ describe('authed generate cap', () => {
     const { app } = makeApp();
     // A prompt too long for any mode cap would 413 unauthenticated; with a
     // valid auth it must reach the model path and return a diagram.
-    const longPrompt = 'a'.repeat(LIMITS.MAX_POLICY_CHARS + 1);
+    // Multi-word fill: single-word fills trip the underspecified guard.
+    const longPrompt = 'policy step '.repeat(Math.ceil((LIMITS.MAX_POLICY_CHARS + 1) / 12)).slice(0, LIMITS.MAX_POLICY_CHARS) + 'x';
     const res = await request(app)
       .post('/')
       .send({ prompt: longPrompt, mode: 'policy', auth: AUTH_PASSWORD });
@@ -142,7 +143,8 @@ describe('authed generate cap', () => {
 
   it('accepts an unauthenticated prompt exactly at the mode cap', async () => {
     const { app } = makeApp();
-    const atCap = 'a'.repeat(LIMITS.MAX_DESCRIBE_CHARS);
+    // Multi-word fill: single-word fills trip the underspecified guard.
+    const atCap = 'policy step '.repeat(Math.ceil(LIMITS.MAX_DESCRIBE_CHARS / 12)).slice(0, LIMITS.MAX_DESCRIBE_CHARS - 1) + 'x';
     const res = await request(app)
       .post('/')
       .send({ prompt: atCap, mode: 'describe' });

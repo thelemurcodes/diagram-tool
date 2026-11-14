@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { LIMITS } from './config';
 
 /** In-memory soft rate limiter (per warm instance). Ported verbatim. */
 export class RateLimiter {
@@ -47,4 +48,17 @@ export function clientIp(headers: Record<string, unknown>): string {
       .split(',')[0]
       .trim() || 'unknown'
   );
+}
+
+/**
+ * True when a prompt is too thin to diagram from: fewer than MIN_PROMPT_WORDS
+ * words or fewer than MIN_PROMPT_CHARS alphanumeric characters. Input this
+ * underspecified makes the model invent a workflow (eval-harness run 2,
+ * finding B) instead of the user getting an ask-for-detail error.
+ */
+export function isUnderspecified(prompt: string): boolean {
+  const words = prompt.trim().split(/\s+/).filter(Boolean);
+  if (words.length < LIMITS.MIN_PROMPT_WORDS) return true;
+  const alnum = prompt.replace(/[^a-zA-Z0-9]/g, '');
+  return alnum.length < LIMITS.MIN_PROMPT_CHARS;
 }

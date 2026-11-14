@@ -415,6 +415,9 @@
 
       <textarea id="code" spellcheck="false" aria-label="Mermaid source code"></textarea>
 
+      <!-- Cycle warning: post-generation back-edge check (warning only; the user decides) -->
+      <div id="cycle-warning" class="hidden" aria-label="Possible loop in the diagram"></div>
+
       <!-- Policy completeness review (policy mode only; stays hidden in describe mode) -->
       <div id="checklist" class="hidden" aria-label="Policy completeness review"></div>
     </section>
@@ -600,6 +603,8 @@ const TEMPLATES = [
    ============================================================================ */
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 import { buildReviewPrompt, parseReviewResponse, buildExceptionPrompt } from "./review.mjs";
+import { isUnderspecified } from "./inputGuard.mjs";
+import { detectFlowchartCycles } from "./cycles.mjs";
 mermaid.initialize({ startOnLoad:false, theme:"neutral", securityLevel:"strict", flowchart:{ useMaxWidth:true } });
 
 const $ = id => document.getElementById(id);
@@ -973,6 +978,11 @@ function zoomCenter(factor){
   });
   wrap.addEventListener("pointermove", (e) => {
     if (!drag) return;
+    view.tx = drag.tx + (e.clientXetPointerCapture(e.pointerId);
+    wrap.classList.add("dragging");
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!drag) return;
     view.tx = drag.tx + (e.clientX - drag.x);
     view.ty = drag.ty + (e.clientY - drag.y);
     applyView();
@@ -1005,9 +1015,14 @@ async function generate(promptOverride){
     showMsgHtml(capExceededMsg(cap), "err");
     return;
   }
+  if (isUnderspecified(prompt)){
+    showMsg("That's too short to diagram from — add a little more detail about the steps, who does what, and any decisions, and I'll map it.", "info");
+    return;
+  }
 
   clearMsg();
   clearChecklist();
+  clearCycleWarning();
   const skipReview = suppressReview;
   suppressReview = false;
   setBusy(true);
@@ -1023,6 +1038,7 @@ async function generate(promptOverride){
     $("code").value = currentCode;
     const ok = await render(currentCode);
     enableTools(ok);
+    renderCycleWarning(currentCode);
     if (ok && activeMode === "policy" && !skipReview){
       runPolicyReview(prompt, currentCode);
     }
@@ -1099,6 +1115,7 @@ function SYSTEM_PROMPT(type, mode){
         "The user has pasted a policy, procedure, or guideline document.",
         "Read it carefully, extract the operational steps, decisions, roles, and escalation paths, and turn THAT into a single valid Mermaid.js diagram.",
         "Ignore preamble, legal boilerplate, definitions, and citations — focus on what someone actually does, step by step.",
+        "Route each step, issue, or escalation to the department, role, or owner the policy actually assigns — never default several items to one department unless the policy says so.",
         `Prefer ${hint}.`
       ]
     : [
@@ -1113,6 +1130,7 @@ function SYSTEM_PROMPT(type, mode){
     "- Keep node labels short and clear; wrap long text in double quotes.",
     "- Use simple, ASCII-safe characters in IDs; put readable text in the labels.",
     "- Avoid parentheses, semicolons, and special characters inside labels that break Mermaid.",
+    "- Keep the flow acyclic: arrows move forward through the process. Only draw a back-edge (a loop to an earlier step) when the policy itself explicitly says the process repeats or returns to an earlier step.",
     "- Keep it readable: aim for 6–20 nodes unless more are clearly needed.",
     "- It must parse on the first try."
   ];
@@ -1130,6 +1148,8 @@ function handleError(err){
     showMsg("Our free tool has hit its daily limit (it's that popular!). Check back tomorrow, or talk to us about doing this for you.", "info");
   } else if (code === "toolong"){
     showMsgHtml(capExceededMsg(err.cap || currentCap()), "err");
+  } else if (code === "underspecified"){
+    showMsg("That was too short to diagram from — add a little more detail about the steps, who does what, and any decisions, and I'll map it.", "info");
   } else if (code === "empty"){
     showMsg("The model didn't return a diagram. Try rephrasing your description a little.", "err");
   } else {
@@ -1217,6 +1237,27 @@ function clearChecklist(){
   $("checklist").innerHTML = "";
 }
 
+/* ---- post-generation cycle warning (warning only; the user decides) ----
+   The system prompt asks the model for acyclic flows; this catches the loops
+   that slip through. Not an error — some policies really do repeat a step. */
+function renderCycleWarning(code){
+  const box = $("cycle-warning");
+  const cycles = detectFlowchartCycles(code);
+  if (!cycles.length){
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const shown = cycles.slice(0, 3).map(c => `<code>${escHtml(c.join(" \u2192 "))}</code>`).join(", ");
+  box.innerHTML = `<p>⚠️ This diagram loops back on itself: ${shown}. If your policy or description is a one-way path, check the steps around the loop in the editor below — but if the process really repeats, you can keep it as is.</p>`;
+  box.classList.remove("hidden");
+}
+
+function clearCycleWarning(){
+  $("cycle-warning").classList.add("hidden");
+  $("cycle-warning").innerHTML = "";
+}
+
 /* Per-exception "Diagram this": re-issues a generation prompt for that one
    exception. The user's original policy stays in the textarea. No completeness
    review runs for these small standalone diagrams. */
@@ -1250,6 +1291,7 @@ $("t-edit").onclick = () => {
 $("code").addEventListener("input", async () => {
   currentCode = $("code").value;
   await render(currentCode);
+  renderCycleWarning(currentCode);
 });
 
 $("t-copy").onclick = async () => {

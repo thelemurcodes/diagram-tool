@@ -90,7 +90,8 @@ describe('input guard — valid prompt passes through', () => {
   it('does not reject a prompt at exactly MAX_DESCRIBE_CHARS characters', async () => {
     const { client, calls } = spyClient();
     const app = await makeApp(client);
-    const atLimit = 'a'.repeat(LIMITS.MAX_DESCRIBE_CHARS);
+    // Multi-word fill: single-word fills trip the underspecified guard.
+    const atLimit = 'policy step '.repeat(Math.ceil(LIMITS.MAX_DESCRIBE_CHARS / 12)).slice(0, LIMITS.MAX_DESCRIBE_CHARS - 1) + 'x';
     const res = await request(app)
       .post('/')
       .send({ prompt: atLimit, mode: 'describe', type: 'flowchart' });
@@ -101,10 +102,48 @@ describe('input guard — valid prompt passes through', () => {
   it('does not reject a prompt at exactly MAX_POLICY_CHARS characters in policy mode', async () => {
     const { client, calls } = spyClient();
     const app = await makeApp(client);
-    const atLimit = 'a'.repeat(LIMITS.MAX_POLICY_CHARS);
+    const atLimit = 'policy step '.repeat(Math.ceil(LIMITS.MAX_POLICY_CHARS / 12)).slice(0, LIMITS.MAX_POLICY_CHARS - 1) + 'x';
     const res = await request(app)
       .post('/')
       .send({ prompt: atLimit, mode: 'policy', type: 'flowchart' });
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe('input guard — underspecified prompt', () => {
+  it('rejects a one-character prompt with 400 before calling the model', async () => {
+    const { client, calls } = spyClient();
+    const app = await makeApp(client);
+    const res = await request(app).post('/').send({ prompt: 'x', mode: 'describe', type: 'flowchart' });
+    expect(res.status).toBe(400);
+    expect(res.body.reason).toBe('underspecified');
+    expect(res.body.error).toMatch(/more detail/i);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects a single-word prompt in policy mode too', async () => {
+    const { client, calls } = spyClient();
+    const app = await makeApp(client);
+    const res = await request(app).post('/').send({ prompt: 'audit', mode: 'policy', type: 'flowchart' });
+    expect(res.status).toBe(400);
+    expect(res.body.reason).toBe('underspecified');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects two words with too few substantive characters', async () => {
+    const { client, calls } = spyClient();
+    const app = await makeApp(client);
+    const res = await request(app).post('/').send({ prompt: 'a b c d', mode: 'describe' });
+    expect(res.status).toBe(400);
+    expect(res.body.reason).toBe('underspecified');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('passes a short-but-meaningful prompt through to the model', async () => {
+    const { client, calls } = spyClient();
+    const app = await makeApp(client);
+    const res = await request(app).post('/').send({ prompt: 'intake flow', type: 'flowchart', mode: 'describe' });
     expect(res.status).toBe(200);
     expect(calls).toHaveLength(1);
   });
