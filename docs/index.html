@@ -781,7 +781,7 @@ async function render(code){
     const { svg } = await mermaid.render("m_" + Date.now(), code);
     $("diagram").innerHTML = svg;
     $("canvas-wrap").classList.add("has-diagram");
-    requestAnimationFrame(fitView);
+    requestAnimationFrame(fitWidth);
     return true;
   }catch(err){
     showMsg("That diagram came back with a syntax error. Try clicking “Edit code” to tweak it, or rephrase and generate again.", "err");
@@ -809,6 +809,9 @@ function applyView(){
   $("zoom-pct").textContent = Math.round(view.scale * 100) + "%";
 }
 function fitView(){
+  // Whole-diagram fit — the explicit opt-in behind the "Fit to view" (⤢) button.
+  // The default first-render fit is fitWidth() below, which keeps tall
+  // flowcharts legible instead of shrinking them to fit the pane height.
   const wrap = $("canvas-wrap");
   const s = svgSize(); if (!s) return;
   s.svg.setAttribute("width",  s.w);
@@ -821,6 +824,23 @@ function fitView(){
   view.scale = scale;
   view.tx = (wrap.clientWidth  - s.w * scale) / 2;
   view.ty = (wrap.clientHeight - s.h * scale) / 2;
+  applyView();
+}
+function fitWidth(){
+  // Default fit: fill the pane width, capped at 100% so text stays at its
+  // natural size; top-aligned so the diagram's first steps are on screen.
+  // Tall flowcharts overflow downward (pan/scroll reaches the rest).
+  const wrap = $("canvas-wrap");
+  const s = svgSize(); if (!s) return;
+  s.svg.setAttribute("width",  s.w);
+  s.svg.setAttribute("height", s.h);
+  s.svg.style.maxWidth = "none";
+  const pad = 24;
+  const topOffset = 12;
+  const scale = Math.min((wrap.clientWidth - pad) / s.w, 1);
+  view.scale = scale;
+  view.tx = (wrap.clientWidth - s.w * scale) / 2;
+  view.ty = topOffset;
   applyView();
 }
 function zoomAt(factor, cx, cy){
@@ -878,7 +898,7 @@ function zoomCenter(factor){
   $("z-fit").onclick = fitView;
 
   window.addEventListener("resize", () => {
-    if (wrap.classList.contains("has-diagram")) fitView();
+    if (wrap.classList.contains("has-diagram")) fitWidth();
   });
 })();
 
