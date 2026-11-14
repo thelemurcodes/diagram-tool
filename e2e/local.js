@@ -140,6 +140,7 @@ let backend; // hoisted so the failure handler below can always kill it
       { timeout: 60000 }
     );
     await page.waitForTimeout(1200);
+    await expectWidthFit(`${label} initial render`);
     await page.screenshot({ path: path.join(EVIDENCE_DIR, `local-${label}-1280.png`) });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(500);
@@ -148,7 +149,33 @@ let backend; // hoisted so the failure handler below can always kill it
     await page.screenshot({ path: path.join(EVIDENCE_DIR, `local-${label}-390.png`) });
     const chars = (await page.inputValue('#code')).length;
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(300);
+    await expectWidthFit(`${label} after resize`);
     console.log(`[e2e] ${label}: rendered, mermaid ${chars} chars`);
+  }
+
+  // Regression guard: the default fit (initial render and after a viewport
+  // resize) must fit the diagram WIDTH (capped at 100%), top-aligned — not
+  // shrink the whole diagram to the pane height, which made tall flowcharts
+  // unreadably small. The "Fit to view" (⤢) button remains the explicit
+  // whole-diagram fit.
+  async function expectWidthFit(stageLabel) {
+    const m = await page.evaluate(() => {
+      const svg = document.querySelector('#diagram svg');
+      if (!svg) return null;
+      const vb = svg.viewBox.baseVal;
+      const t = document.querySelector('#diagram').style.transform;
+      const scale = parseFloat(t.match(/scale\(([\d.]+)\)/)[1]);
+      const ty = parseFloat(t.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/)[2]);
+      return { vbW: vb.width, wrapW: document.querySelector('#canvas-wrap').clientWidth, scale, ty };
+    });
+    if (!m) { failures.push(`no diagram to check (${stageLabel})`); return; }
+    const expected = Math.min((m.wrapW - 24) / m.vbW, 1);
+    const ok = Math.abs(m.scale - expected) < 0.02 && m.ty > 0 && m.ty < 50;
+    if (!ok) {
+      failures.push(`default fit is not width-fit (${stageLabel}): scale ${m.scale.toFixed(3)} vs expected ${expected.toFixed(3)}, ty ${m.ty}px`);
+    }
+    console.log(`[e2e] ${stageLabel}: zoom ${(m.scale * 100).toFixed(0)}% (width-fit expected ${(expected * 100).toFixed(0)}%)`);
   }
 
   await generate('describe', DESCRIBE_PROMPT);
