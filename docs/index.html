@@ -174,6 +174,24 @@
   .tmpl-detail-link{display:block;font-size:11.5px;color:var(--brand);font-weight:600;text-decoration:none;margin-top:10px}
   .tmpl-detail-link:hover{text-decoration:underline}
 
+  /* Policy completeness review (policy mode, after generation) */
+  #checklist{margin:0 16px 16px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13.5px;background:#fbfdfc}
+  #checklist h3{margin:0 0 2px;font-size:14px;font-weight:750}
+  #checklist .cl-note{margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.45}
+  .cl-section{margin:10px 0 0}
+  .cl-section h4{margin:0 0 4px;font-size:12.5px;font-weight:700;color:var(--ink)}
+  .cl-section ul{margin:0;padding-left:20px}
+  .cl-section li{margin:2px 0}
+  .cl-empty{list-style:none;padding-left:0;color:var(--muted);font-style:italic}
+  .cl-missing h4,.cl-missing li{color:var(--warn)}
+  .cl-exc{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .cl-exc:last-child{border-bottom:none}
+  .cl-exc .t{font-weight:600}
+  .cl-exc .d{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+  .cl-none{color:var(--muted);font-style:italic}
+  .cl-diag{font-size:12px;font-weight:650;border:1px solid var(--brand);background:#fff;color:var(--brand);padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:.12s;font-family:var(--font)}
+  .cl-diag:hover{background:var(--brand-soft)}
+
   /* Lead-capture prompt */
   #lead-prompt{
     margin-top:14px;
@@ -374,6 +392,9 @@
       </div>
 
       <textarea id="code" spellcheck="false" aria-label="Mermaid source code"></textarea>
+
+      <!-- Policy completeness review (policy mode only; stays hidden in describe mode) -->
+      <div id="checklist" class="hidden" aria-label="Policy completeness review"></div>
     </section>
   </div>
 
@@ -527,6 +548,7 @@ const TEMPLATES = [
    App
    ============================================================================ */
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+import { buildReviewPrompt, parseReviewResponse, buildExceptionPrompt } from "./review.mjs";
 mermaid.initialize({ startOnLoad:false, theme:"neutral", securityLevel:"strict", flowchart:{ useMaxWidth:true } });
 
 const $ = id => document.getElementById(id);
@@ -535,6 +557,9 @@ let activeMode = "describe";   // "describe" | "policy"
 let currentCode = "";
 let editing = false;
 let activeTemplateId = null;
+let suppressReview = false;    // set once for per-exception regeneration
+let reviewRunId = 0;           // invalidates stale review responses
+let currentExceptions = [];    // exceptions from the latest parsed review
 
 const MAX_CHARS = { describe: 1500, policy: 8000, authed: 50000 };
 const PLACEHOLDERS = {
@@ -921,8 +946,8 @@ function zoomCenter(factor){
 })();
 
 /* ---- call the model (proxy in prod, direct in local-test) ---- */
-async function generate(){
-  const prompt = $("prompt").value.trim();
+async function generate(promptOverride){
+  const prompt = (promptOverride != null ? promptOverride : $("prompt").value).trim();
   if (!prompt){ showMsg("Tell me what to diagram first — type a description, paste a policy, or pick a template.", "info"); return; }
   const cap = currentCap();
   if (prompt.length > cap){
@@ -931,6 +956,9 @@ async function generate(){
   }
 
   clearMsg();
+  clearChecklist();
+  const skipReview = suppressReview;
+  suppressReview = false;
   setBusy(true);
 
   try{
@@ -944,6 +972,9 @@ async function generate(){
     $("code").value = currentCode;
     const ok = await render(currentCode);
     enableTools(ok);
+    if (ok && activeMode === "policy" && !skipReview){
+      runPolicyReview(prompt, currentCode);
+    }
   }catch(err){
     handleError(err);
   }finally{
@@ -1067,8 +1098,98 @@ function enableTools(on){
   ["t-edit","t-copy","t-png","t-svg"].forEach(id => $(id).disabled = !on);
 }
 
+/* ---- policy completeness review (policy mode only) ----
+   A second model call over the SAME generation endpoint/message path: the
+   policy + generated diagram are re-sent as the prompt, with instructions
+   demanding a JSON-only completeness review. The user's policy therefore
+   only ever travels to the endpoint it was already pasted into. */
+function runPolicyReview(policyText, mermaidCode){
+  const run = ++reviewRunId;
+  const reviewPrompt = buildReviewPrompt(policyText, mermaidCode, currentCap());
+  if (!reviewPrompt){
+    // The review prompt cannot fit under the endpoint's input cap — skip the
+    // checklist rather than truncate the policy (which would fake coverage).
+    console.warn("Policy completeness review skipped: prompt exceeds input cap");
+    return;
+  }
+  showMsg("Checking your policy against the diagram for missed sections…", "info");
+  const send = LOCAL
+    ? callAnthropicDirect(reviewPrompt, activeType, "policy")
+    : callProxy(reviewPrompt, activeType, "policy");
+  send.then(raw => {
+    if (run !== reviewRunId) return; // a newer generation superseded this review
+    const review = parseReviewResponse(raw);
+    if (!review){
+      console.warn("Policy completeness review skipped: response was not parseable JSON");
+      clearMsg();
+      return;
+    }
+    clearMsg();
+    renderChecklist(review);
+  }).catch(err => {
+    if (run !== reviewRunId) return;
+    // The diagram stands on its own; the checklist is a best-effort add-on.
+    clearMsg();
+    console.warn("Policy completeness review skipped:", (err && (err.code || err.status)) || "error");
+  });
+}
+
+function escHtml(s){
+  return String(s).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+}
+
+function renderChecklist(review){
+  currentExceptions = review.exceptions;
+  const list = items => items.length
+    ? `<ul>${items.map(i => `<li>${escHtml(i)}</li>`).join("")}</ul>`
+    : `<ul class="cl-empty"><li>None found in this policy</li></ul>`;
+  const excRows = review.exceptions.length
+    ? review.exceptions.map((e, i) =>
+        `<div class="cl-exc"><span class="t">${escHtml(e.title || "Exception")}<span class="d">${escHtml(e.detail)}</span></span>` +
+        `<button type="button" class="cl-diag" data-exc="${i}">Diagram this</button></div>`).join("")
+    : `<div class="cl-none">None found in this policy</div>`;
+  $("checklist").innerHTML = `
+    <h3>Policy completeness review</h3>
+    <p class="cl-note">Everything below was found in your pasted policy text. “Missing from the diagram” lists things your policy says that the diagram left out — a gap in the diagram, not an error in your policy.</p>
+    <div class="cl-section"><h4>✅ Normal path (${review.normal_path.length})</h4>${list(review.normal_path)}</div>
+    <div class="cl-section"><h4>⚠️ Errors handled (${review.errors.length})</h4>${list(review.errors)}</div>
+    <div class="cl-section"><h4>🚫 Refusals handled (${review.refusals.length})</h4>${list(review.refusals)}</div>
+    <div class="cl-section"><h4>🔀 Exceptions (${review.exceptions.length})</h4>${excRows}</div>
+    <div class="cl-section cl-missing"><h4>❗ Missing from the diagram (${review.missing.length})</h4>${list(review.missing)}</div>`;
+  $("checklist").classList.remove("hidden");
+}
+
+function clearChecklist(){
+  reviewRunId++; // invalidate any in-flight review render
+  currentExceptions = [];
+  $("checklist").classList.add("hidden");
+  $("checklist").innerHTML = "";
+}
+
+/* Per-exception "Diagram this": re-issues a generation prompt for that one
+   exception. The user's original policy stays in the textarea. No completeness
+   review runs for these small standalone diagrams. */
+$("checklist").addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("[data-exc]");
+  if (!btn) return;
+  const exc = currentExceptions[Number(btn.dataset.exc)];
+  if (exc) diagramException(exc);
+});
+
+function diagramException(exc){
+  const prompt = buildExceptionPrompt(exc);
+  if (prompt.length > currentCap()){
+    showMsg("That exception summary is too long to diagram on its own. Try generating the full diagram again.", "err");
+    return;
+  }
+  suppressReview = true;
+  generate(prompt);
+  document.querySelector("section[aria-label='Your diagram']").scrollIntoView({ behavior:"smooth" });
+}
+
 /* ---- toolbar actions ---- */
-$("gen").onclick = generate;
+/* Wrapped so the click event is never mistaken for a promptOverride. */
+$("gen").onclick = () => generate();
 
 $("t-edit").onclick = () => {
   editing = !editing;

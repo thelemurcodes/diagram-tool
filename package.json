@@ -9,7 +9,7 @@
     "server"
   ],
   "scripts": {
-    "test": "npm test --workspaces --if-present",
+    "test": "npm test --workspaces --if-present && node --test docs/test/*.test.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspace server",
     "start": "npm run start --workspace server",
