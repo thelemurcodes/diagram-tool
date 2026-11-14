@@ -210,6 +210,12 @@
   .cl-none{color:var(--muted);font-style:italic}
   .cl-diag{font-size:12px;font-weight:650;border:1px solid var(--brand);background:#fff;color:var(--brand);padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:.12s;font-family:var(--font)}
   .cl-diag:hover{background:var(--brand-soft)}
+  #section-guard{margin:0 16px 16px;border:1px solid #f3cdb4;border-radius:12px;padding:14px 16px;font-size:13.5px;background:#fdeee6;color:var(--ink)}
+  #section-guard strong{color:var(--warn)}
+  #section-guard p{margin:6px 0 4px}
+  #section-guard ul{margin:4px 0;padding-left:20px}
+  #section-guard li{margin:2px 0;font-weight:600;color:var(--warn)}
+  #section-guard .sg-quiet{color:var(--muted);font-weight:400}
 
   /* Lead-capture prompt */
   #lead-prompt{
@@ -417,6 +423,9 @@
 
       <!-- Policy completeness review (policy mode only; stays hidden in describe mode) -->
       <div id="checklist" class="hidden" aria-label="Policy completeness review"></div>
+
+      <!-- Deterministic section guard: warns when pasted policy headings are missing from the diagram -->
+      <div id="section-guard" class="hidden" role="alert"></div>
     </section>
   </div>
 
@@ -600,6 +609,7 @@ const TEMPLATES = [
    ============================================================================ */
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 import { buildReviewPrompt, parseReviewResponse, buildExceptionPrompt } from "./review.mjs";
+import { findUncoveredHeadings } from "./sections.mjs";
 mermaid.initialize({ startOnLoad:false, theme:"neutral", securityLevel:"strict", flowchart:{ useMaxWidth:true } });
 
 const $ = id => document.getElementById(id);
@@ -1008,6 +1018,7 @@ async function generate(promptOverride){
 
   clearMsg();
   clearChecklist();
+  clearSectionGuard();
   const skipReview = suppressReview;
   suppressReview = false;
   setBusy(true);
@@ -1024,6 +1035,7 @@ async function generate(promptOverride){
     const ok = await render(currentCode);
     enableTools(ok);
     if (ok && activeMode === "policy" && !skipReview){
+      runSectionGuard(prompt, currentCode);
       runPolicyReview(prompt, currentCode);
     }
   }catch(err){
@@ -1217,6 +1229,46 @@ function clearChecklist(){
   $("checklist").innerHTML = "";
 }
 
+/* ---- deterministic section guard (policy mode only) ----
+   No model call: parses section headings out of the pasted policy and
+   checks each against the generated Mermaid text. Complements the
+   model-driven checklist above — catches silent section drops it misses
+   (e.g. an entire 'Special Circumstances' section vanishing). */
+let lastSectionGaps = [];
+
+function runSectionGuard(policyText, mermaidCode){
+  lastSectionGaps = findUncoveredHeadings(policyText, mermaidCode);
+  renderSectionGuard();
+}
+
+function renderSectionGuard(){
+  const el = $("section-guard");
+  if (!lastSectionGaps.length){
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  const items = lastSectionGaps.map(s => `<li>${escHtml(s)}</li>`).join("");
+  el.innerHTML = `<strong>Some policy sections may be missing from this diagram.</strong>
+    <p>The following section headings in your pasted policy have no matching text in the generated diagram:</p>
+    <ul>${items}</ul>
+    <p class="sg-quiet">Regenerate or edit the Mermaid source before exporting — or export anyway if the omission is intended.</p>`;
+  el.classList.remove("hidden");
+}
+
+function clearSectionGuard(){
+  lastSectionGaps = [];
+  renderSectionGuard();
+}
+
+/* Re-emphasize the guard when the user exports — warn, never block. */
+function warnExportIfSectionGaps(){
+  if (!lastSectionGaps.length) return;
+  const n = lastSectionGaps.length;
+  const list = lastSectionGaps.join("; ");
+  showMsg(`Heads up: ${n} policy section${n > 1 ? "s" : ""} may be missing from this diagram: ${list}. Exporting anyway.`, "err");
+}
+
 /* Per-exception "Diagram this": re-issues a generation prompt for that one
    exception. The user's original policy stays in the textarea. No completeness
    review runs for these small standalone diagrams. */
@@ -1258,13 +1310,14 @@ $("t-copy").onclick = async () => {
 };
 
 $("t-svg").onclick = () => {
+  warnExportIfSectionGaps();
   const svg = $("diagram").querySelector("svg");
   if (!svg) return;
   const blob = new Blob([new XMLSerializer().serializeToString(svg)], {type:"image/svg+xml"});
   downloadBlob(blob, "diagram.svg");
 };
 
-$("t-png").onclick = () => exportPNG();
+$("t-png").onclick = () => { warnExportIfSectionGaps(); exportPNG(); };
 
 /* ---- print preview ----
    Client-side only: tiles the already-rendered SVG onto paper-sized pages.
@@ -1364,7 +1417,7 @@ function closePrintPreview(){
   $("print-root").innerHTML = "";
 }
 
-$("t-print").onclick = () => { if ($("diagram").querySelector("svg")) openPrintPreview(); };
+$("t-print").onclick = () => { warnExportIfSectionGaps(); if ($("diagram").querySelector("svg")) openPrintPreview(); };
 $("print-paper").onchange = rebuildPrintPages;
 $("print-orient").onchange = rebuildPrintPages;
 $("print-cancel").onclick = closePrintPreview;
