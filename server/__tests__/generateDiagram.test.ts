@@ -17,6 +17,12 @@ function makeApp(overrides: Partial<AppDeps> = {}) {
   return { app, limiter };
 }
 
+/** Multi-word fill of exactly n chars (the handler trims, so it must not end
+ *  in whitespace, and single-word fills now trip the underspecified guard). */
+function fillChars(n: number): string {
+  return 'policy step '.repeat(Math.ceil(n / 12)).slice(0, n - 1) + 'x';
+}
+
 describe('HTTP handler — CORS preflight', () => {
   it('responds 204 to OPTIONS requests', async () => {
     const { app } = makeApp();
@@ -95,19 +101,21 @@ describe('HTTP handler — input validation', () => {
 
   it('accepts a describe prompt at exactly the 1500-char limit', async () => {
     const { app } = makeApp();
-    const res = await request(app).post('/').send({ prompt: 'a'.repeat(1500), mode: 'describe' });
+    // Multi-word fill: a single-word or single-character fill is now caught
+    // by the underspecified-input guard before it reaches the cap.
+    const res = await request(app).post('/').send({ prompt: fillChars(1500), mode: 'describe' });
     expect(res.status).toBe(200);
   });
 
   it('accepts a policy prompt at exactly the 8000-char limit', async () => {
     const { app } = makeApp();
-    const res = await request(app).post('/').send({ prompt: 'a'.repeat(8000), mode: 'policy' });
+    const res = await request(app).post('/').send({ prompt: fillChars(8000), mode: 'policy' });
     expect(res.status).toBe(200);
   });
 
   it('defaults mode to "describe" when mode is unrecognised', async () => {
     const { app } = makeApp();
-    const res = await request(app).post('/').send({ prompt: 'a'.repeat(1499), mode: 'bad-mode' });
+    const res = await request(app).post('/').send({ prompt: fillChars(1499), mode: 'bad-mode' });
     expect(res.status).toBe(200);
   });
 

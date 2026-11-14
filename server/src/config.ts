@@ -28,6 +28,13 @@ export const LIMITS = {
   // Team sign-in attempts (auth_check) — bounded so the password can't be
   // brute-forced at request rate. Frontend surfaces 429 as "Too many attempts."
   AUTH_PER_IP_PER_MIN: 5,
+
+  // Underspecified-input guard (quality guard, not a cost guard): below these
+  // floors there is nothing meaningful to diagram from, and the model would
+  // silently invent a workflow (eval-harness run 2, finding B). The frontend
+  // mirrors this check (docs/inputGuard.mjs) — keep both in sync.
+  MIN_PROMPT_WORDS: 2,
+  MIN_PROMPT_CHARS: 5, // alphanumeric characters, ignoring punctuation/spaces
 } as const;
 
 /** Basic RFC-5322-ish email regex — rejects obvious non-emails, not exhaustive. */

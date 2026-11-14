@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import { LIMITS, EMAIL_RE } from './config';
-import { RateLimiter, cleanMermaid, hashIp, clientIp } from './util';
+import { RateLimiter, cleanMermaid, hashIp, clientIp, isUnderspecified } from './util';
 import { systemPrompt } from './prompts';
 import { ModelClient, UpstreamError } from './modelClient';
 import { LogStore, LeadStore } from './stores/types';
@@ -255,6 +255,16 @@ async function handle(req: Request, res: Response, d: AppDeps, limiter: RateLimi
   const cap = authed ? LIMITS.AUTHED_MAX_CHARS : mode === 'policy' ? LIMITS.MAX_POLICY_CHARS : LIMITS.MAX_DESCRIBE_CHARS;
   if (prompt.length > cap) {
     res.status(413).json({ error: 'Prompt too long', cap });
+    return;
+  }
+
+  // Underspecified-input guard: reject prompts too thin to diagram from
+  // before any model call — the model would invent a workflow instead.
+  if (isUnderspecified(prompt)) {
+    res.status(400).json({
+      error: 'Prompt too short — please describe the process or paste the policy in more detail',
+      reason: 'underspecified',
+    });
     return;
   }
 
