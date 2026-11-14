@@ -287,6 +287,67 @@ let backend; // hoisted so the failure handler below can always kill it
   await page.screenshot({ path: path.join(EVIDENCE_DIR, 'local-policy-exception-diagram-1280.png') });
   console.log('[e2e] per-exception diagram generated; policy preserved; review suppressed');
 
+  // Print preview: opens from the toolbar, tiles per paper/orientation, and the
+  // print stylesheet isolates #print-root from all app chrome.
+  const PAPER_PX = { letter: [816, 1056], a4: [794, 1123] }; // must match index.html
+  function expectedPrintLayout(vbW, vbH, paper, orient) {
+    const [pw0, ph0] = PAPER_PX[paper];
+    const [pw, ph] = orient === 'landscape' ? [ph0, pw0] : [pw0, ph0];
+    const margin = 38;
+    const scale = Math.min((pw - margin * 2) / vbW, 1);
+    return { rows: Math.max(1, Math.ceil((vbH * scale) / (ph - margin * 2))), pw, ph };
+  }
+
+  await page.click('#t-print');
+  await page.waitForFunction(() => !document.querySelector('#print-modal').classList.contains('hidden'));
+  for (const paper of ['letter', 'a4']) {
+    for (const orient of ['portrait', 'landscape']) {
+      await page.selectOption('#print-paper', paper);
+      await page.selectOption('#print-orient', orient);
+      const m = await page.evaluate(() => {
+        const svg = document.querySelector('#diagram svg');
+        const vb = svg.viewBox.baseVal;
+        const previewPages = document.querySelectorAll('#print-preview-pages .pp-page');
+        const rootPages = document.querySelectorAll('#print-root .pp-page');
+        return {
+          vbW: vb.width, vbH: vb.height,
+          preview: previewPages.length,
+          root: rootPages.length,
+          rootPageSize: rootPages[0] ? rootPages[0].style.width + ' x ' + rootPages[0].style.height : '',
+          summary: document.querySelector('#print-summary').textContent,
+        };
+      });
+      const exp = expectedPrintLayout(m.vbW, m.vbH, paper, orient);
+      if (m.preview !== exp.rows) failures.push(`print preview ${paper}/${orient}: ${m.preview} pages, expected ${exp.rows}`);
+      if (m.root !== exp.rows) failures.push(`print sheet ${paper}/${orient}: ${m.root} pages, expected ${exp.rows}`);
+      if (m.rootPageSize !== `${exp.pw}px x ${exp.ph}px`) failures.push(`print page size ${paper}/${orient}: "${m.rootPageSize}", expected "${exp.pw}px x ${exp.ph}px"`);
+      console.log(`[e2e] print preview ${paper}/${orient}: ${m.preview} page(s) ("${m.summary}"), sheet page ${m.rootPageSize}`);
+    }
+  }
+
+  await page.screenshot({ path: path.join(EVIDENCE_DIR, 'local-print-preview-1280.png') });
+  await page.emulateMedia({ media: 'print' });
+  await page.waitForTimeout(200);
+  const printState = await page.evaluate(() => ({
+    root: getComputedStyle(document.querySelector('#print-root')).display,
+    chrome: getComputedStyle(document.querySelector('.wrap')).display,
+    modal: getComputedStyle(document.querySelector('#print-modal')).display,
+    svgPresent: !!document.querySelector('#print-root svg'),
+  }));
+  if (printState.root !== 'block') failures.push(`print stylesheet: #print-root display ${printState.root}, expected block`);
+  if (printState.chrome !== 'none') failures.push('print stylesheet: app chrome (.wrap) is not hidden');
+  if (printState.modal !== 'none') failures.push('print stylesheet: preview dialog is not hidden');
+  if (!printState.svgPresent) failures.push('print sheet has no diagram');
+  await page.screenshot({ path: path.join(EVIDENCE_DIR, 'local-print-stylesheet-1280.png') });
+  await page.emulateMedia({ media: 'screen' });
+  console.log('[e2e] print stylesheet isolates the page sheet from app chrome');
+
+  await page.click('#print-cancel');
+  await page.waitForFunction(() => document.querySelector('#print-modal').classList.contains('hidden'));
+  if (!(await page.evaluate(() => !!document.querySelector('#diagram svg')))) failures.push('diagram missing after closing print preview');
+  if ((await page.evaluate(() => document.querySelector('#print-root').children.length)) !== 0) failures.push('print sheet not cleared after closing preview');
+  console.log('[e2e] print preview closed; screen rendering unchanged');
+
   await browser.close();
   docsServer.close();
   backend.kill();

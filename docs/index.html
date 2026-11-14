@@ -169,6 +169,25 @@
   .btn-primary:hover{background:var(--brand-dark)}
   .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 
+  /* Print preview (client-side; tiles the rendered SVG onto paper pages) */
+  .print-card{max-width:640px;max-height:88vh;overflow:auto}
+  .print-controls{display:flex;gap:16px;align-items:center;margin:2px 0 14px;font-size:13px;font-weight:600}
+  .print-controls select{margin-left:6px;font-family:var(--font);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink)}
+  #print-preview-pages{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .pp-slot{position:relative}
+  .pp-slot .pp-page{position:absolute;top:0;left:0;transform-origin:0 0}
+  .pp-page{background:#fff;border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.1);overflow:hidden;position:relative}
+  .pp-label{font-size:12px;color:var(--muted);text-align:center}
+  #print-root{display:none}
+
+  @media print{
+    body{margin:0!important}
+    body > *:not(#print-root){display:none!important}
+    #print-root{display:block!important}
+    #print-root .pp-page{border:none;box-shadow:none;break-after:page;page-break-after:always}
+    #print-root .pp-page:last-child{break-after:auto;page-break-after:auto}
+  }
+
   .hidden{display:none!important}
 
   .tmpl-detail-link{display:block;font-size:11.5px;color:var(--brand);font-weight:600;text-decoration:none;margin-top:10px}
@@ -284,6 +303,8 @@
   #lead-open:hover{color:var(--brand)}
 
 </style>
+<!-- @page rule for the print sheet; rewritten by the print preview controls -->
+<style id="print-page-rule"></style>
 </head>
 <body>
 <div class="wrap">
@@ -369,6 +390,7 @@
           <button class="tbtn" id="t-copy" disabled>Copy code</button>
           <button class="tbtn" id="t-png" disabled>Download PNG</button>
           <button class="tbtn" id="t-svg" disabled>Download SVG</button>
+          <button class="tbtn" id="t-print" disabled>Print</button>
         </div>
       </div>
 
@@ -449,6 +471,35 @@
     </div>
   </div>
 </div>
+
+<!-- Print preview: client-side tiling of the rendered diagram. #print-root is the
+     print-only page sheet; @media print hides everything else on the body. -->
+<div class="modal-backdrop hidden" id="print-modal" role="dialog" aria-modal="true" aria-labelledby="print-title">
+  <div class="modal-card print-card">
+    <h3 id="print-title">Print preview</h3>
+    <p class="lead" id="print-summary"></p>
+    <div class="print-controls">
+      <label>Paper
+        <select id="print-paper">
+          <option value="letter" selected>Letter</option>
+          <option value="a4">A4</option>
+        </select>
+      </label>
+      <label>Orientation
+        <select id="print-orient">
+          <option value="portrait" selected>Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+      </label>
+    </div>
+    <div id="print-preview-pages" aria-label="Preview pages"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="print-cancel" type="button">Cancel</button>
+      <button class="btn-primary" id="print-go" type="button">Print</button>
+    </div>
+  </div>
+</div>
+<div id="print-root" aria-hidden="true"></div>
 
 <script type="module">
 /* ============================================================================
@@ -1095,7 +1146,7 @@ function setBusy(b){
   if (b){ $("empty").classList.add("hidden"); $("diagram").innerHTML = ""; }
 }
 function enableTools(on){
-  ["t-edit","t-copy","t-png","t-svg"].forEach(id => $(id).disabled = !on);
+  ["t-edit","t-copy","t-png","t-svg","t-print"].forEach(id => $(id).disabled = !on);
 }
 
 /* ---- policy completeness review (policy mode only) ----
@@ -1214,6 +1265,111 @@ $("t-svg").onclick = () => {
 };
 
 $("t-png").onclick = () => exportPNG();
+
+/* ---- print preview ----
+   Client-side only: tiles the already-rendered SVG onto paper-sized pages.
+   The same page sheet doubles as the scaled preview (#print-preview-pages)
+   and the print output (#print-root); @media print isolates #print-root. */
+const PAPER_SIZES = { letter: { w: 816, h: 1056 }, a4: { w: 794, h: 1123 } }; // CSS px @96dpi
+const PRINT_MARGIN = 38; // ~0.4in
+
+function computePrintLayout(w, h, paper, orient){
+  const base = PAPER_SIZES[paper];
+  const pageW = orient === "landscape" ? base.h : base.w;
+  const pageH = orient === "landscape" ? base.w : base.h;
+  const scale = Math.min((pageW - PRINT_MARGIN*2) / w, 1); // fit width, never upscale
+  const rows = Math.max(1, Math.ceil((h * scale) / (pageH - PRINT_MARGIN*2)));
+  return { pageW, pageH, scale, rows };
+}
+
+function printableSvgXml(svg, w, h, suffix){
+  // Pin the clone to its viewBox size and give every internal id a per-sheet
+  // suffix: duplicated ids would make marker/clip-path references resolve to
+  // the on-screen original (hidden while printing) instead of the clone.
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("width", w);
+  clone.setAttribute("height", h);
+  clone.style.maxWidth = "none";
+  let xml = new XMLSerializer().serializeToString(clone);
+  const ids = Array.from(clone.querySelectorAll("[id]")).map(el => el.id).sort((a, b) => b.length - a.length);
+  for (const id of ids){
+    xml = xml.split(`id="${id}"`).join(`id="${id}${suffix}"`);
+    xml = xml.split(`url(#${id})`).join(`url(#${id}${suffix})`);
+    xml = xml.split(`href="#${id}"`).join(`href="#${id}${suffix}"`);
+    xml = xml.split(`xlink:href="#${id}"`).join(`xlink:href="#${id}${suffix}"`);
+  }
+  return xml;
+}
+
+function renderPrintPage(layout, xml, tileIndex){
+  const page = document.createElement("div");
+  page.className = "pp-page";
+  page.style.width = layout.pageW + "px";
+  page.style.height = layout.pageH + "px";
+  const contentH = layout.pageH - PRINT_MARGIN*2;
+  const clip = document.createElement("div");
+  clip.style.cssText = `position:absolute;left:${PRINT_MARGIN}px;top:${PRINT_MARGIN}px;width:${layout.pageW - PRINT_MARGIN*2}px;height:${contentH}px;overflow:hidden`;
+  const tile = document.createElement("div");
+  // Offset by the tile's top in unscaled px, then scale: the scaled slice
+  // exactly fills the content box of this page.
+  tile.style.cssText = `position:absolute;left:0;top:${-tileIndex * contentH / layout.scale}px;transform:scale(${layout.scale});transform-origin:0 0`;
+  tile.innerHTML = xml;
+  clip.appendChild(tile);
+  page.appendChild(clip);
+  return page;
+}
+
+function rebuildPrintPages(){
+  const s = svgSize();
+  if (!s) return;
+  const paper = $("print-paper").value;
+  const orient = $("print-orient").value;
+  const layout = computePrintLayout(s.w, s.h, paper, orient);
+  const xml = printableSvgXml(s.svg, s.w, s.h, "-pr");
+
+  const preview = $("print-preview-pages");
+  preview.innerHTML = "";
+  const fit = Math.min(1, 520 / layout.pageW);
+  for (let i = 0; i < layout.rows; i++){
+    const slot = document.createElement("div");
+    slot.className = "pp-slot";
+    slot.style.width = (layout.pageW * fit) + "px";
+    slot.style.height = (layout.pageH * fit) + "px";
+    const page = renderPrintPage(layout, xml, i);
+    page.style.transform = `scale(${fit})`;
+    slot.appendChild(page);
+    preview.appendChild(slot);
+  }
+
+  const root = $("print-root");
+  root.innerHTML = "";
+  for (let i = 0; i < layout.rows; i++) root.appendChild(renderPrintPage(layout, xml, i));
+
+  const paperLabel = paper === "a4" ? "A4" : "Letter";
+  $("print-summary").textContent =
+    `Fits on ${layout.rows} page${layout.rows > 1 ? "s" : ""} — ${paperLabel}, ${orient}. Only the diagram pages print.`;
+  const sizeRule = paper === "a4"
+    ? (orient === "landscape" ? "297mm 210mm" : "210mm 297mm")
+    : (orient === "landscape" ? "11in 8.5in" : "8.5in 11in");
+  $("print-page-rule").textContent = `@page{size:${sizeRule};margin:0}`;
+}
+
+function openPrintPreview(){
+  rebuildPrintPages();
+  $("print-modal").classList.remove("hidden");
+}
+function closePrintPreview(){
+  $("print-modal").classList.add("hidden");
+  // Drop the id-suffixed copies so they never linger in the document.
+  $("print-root").innerHTML = "";
+}
+
+$("t-print").onclick = () => { if ($("diagram").querySelector("svg")) openPrintPreview(); };
+$("print-paper").onchange = rebuildPrintPages;
+$("print-orient").onchange = rebuildPrintPages;
+$("print-cancel").onclick = closePrintPreview;
+$("print-go").onclick = () => window.print();
+window.addEventListener("afterprint", closePrintPreview);
 
 function exportPNG(){
   const svg = $("diagram").querySelector("svg");
